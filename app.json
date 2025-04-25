@@ -1,0 +1,90 @@
+{
+  "expo": {
+    "name": "Finance Manager",
+    "slug": "finance-manager",
+    "description": "Aplicativo de gestão financeira pessoal com visual moderno e minimalista",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/banco.png",
+    "scheme": "financegestao",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/banco.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#3366FF"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.finance.manager",
+      "buildNumber": "1",
+      "splash": {
+        "image": "./assets/images/banco.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FFFFFF",
+        "tabletImage": "./assets/images/banco.png"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/banco.png",
+        "backgroundColor": "#3366FF"
+      },
+      "package": "com.finance.manager",
+      "versionCode": 1,
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "splash": {
+        "image": "./assets/images/banco.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/banco.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permite que você entre no aplicativo usando o reconhecimento facial."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "da1f6354-0ccc-4706-84c0-c2ddd933e4d9"
+      }
+    },
+    "newArchEnabled": true,
+    "jsEngine": "hermes",
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
+    "developmentClient": {
+      "debuggerHost": null,
+      "silentLaunch": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "owner": "lucas-chiari"
+  }
+}
