@@ -62,6 +62,25 @@ export const getCategoryById = (id: string): Category => {
 };
 
 // Função para obter o método de pagamento pelo ID
-export const getPaymentMethodById = (id: string): PaymentMethod => {
-  return PAYMENT_METHODS.find(method => method.id === id) || PAYMENT_METHODS[0];
+export const getPaymentMethodById = (id: string | null | undefined): PaymentMethod => {
+  // Se o ID for nulo ou undefined, retornar método genérico
+  if (!id) return {
+    id: 'unknown',
+    name: 'Não informado',
+    icon: 'help-circle-outline',
+    type: 'other',
+    color: '#999999'
+  };
+  
+  const method = PAYMENT_METHODS.find(method => method.id === id);
+  if (method) return method;
+  
+  // Retornar um método genérico quando não encontrado
+  return {
+    id: 'unknown',
+    name: 'Não informado',
+    icon: 'help-circle-outline',
+    type: 'other',
+    color: '#999999'
+  };
 }; 

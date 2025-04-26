@@ -28,7 +28,7 @@ const categoryGroups = {
 
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { transactions, updateTransaction, deleteTransaction } = useTransactions();
+  const { transactions, updateTransaction, deleteTransaction, accounts, paymentMethods } = useTransactions();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   
@@ -41,7 +41,7 @@ export default function TransactionDetailScreen() {
   const [editedAmount, setEditedAmount] = useState('');
   const [editedCategory, setEditedCategory] = useState('');
   const [editedDate, setEditedDate] = useState<Date>(new Date());
-  const [editedPaymentMethod, setEditedPaymentMethod] = useState('');
+  const [editedPaymentMethod, setEditedPaymentMethod] = useState<string | null>('');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showPaymentMethodPicker, setShowPaymentMethodPicker] = useState(false);
@@ -89,7 +89,11 @@ export default function TransactionDetailScreen() {
         setEditedAmount(String(foundTransaction.amount));
         setEditedCategory(foundTransaction.categoryId || '');
         setEditedDate(foundTransaction.date ? new Date(foundTransaction.date) : new Date());
-        setEditedPaymentMethod(foundTransaction.paymentMethodId || '');
+        
+        // Garantir que o método de pagamento seja tratado adequadamente
+        setEditedPaymentMethod(foundTransaction.paymentMethodId || null);
+        
+        console.log('Método de pagamento carregado:', foundTransaction.paymentMethodId);
       }
       setLoading(false);
     }
@@ -101,6 +105,31 @@ export default function TransactionDetailScreen() {
     const category = getCategoryById(categoryId);
     return category || { id: categoryId, name: 'Categoria', icon: 'help-circle', color: colors.primary };
   };
+  
+  // Verificar informações importantes para debug
+  useEffect(() => {
+    if (transaction) {
+      console.log('Detalhes da transação carregada:');
+      console.log('- ID:', transaction.id);
+      console.log('- Descrição:', transaction.description);
+      console.log('- Tipo:', transaction.type);
+      console.log('- Conta ID:', transaction.accountId);
+      console.log('- Método de Pagamento ID:', transaction.paymentMethodId);
+      
+      console.log('Todos os métodos de pagamento disponíveis:');
+      paymentMethods.forEach(method => {
+        console.log(`- ${method.id}: ${method.name}`);
+      });
+      
+      const foundMethod = paymentMethods.find(m => m.id === transaction.paymentMethodId);
+      console.log('Método encontrado na lista:', foundMethod ? `${foundMethod.name} (${foundMethod.id})` : 'Não encontrado');
+      
+      if (transaction.paymentMethodId) {
+        const method = getPaymentMethodById(transaction.paymentMethodId);
+        console.log('- Método de Pagamento Nome (via helper):', method.name);
+      }
+    }
+  }, [transaction, paymentMethods]);
   
   // Formatar o valor
   const handleAmountChange = (text: string) => {
@@ -158,7 +187,7 @@ export default function TransactionDetailScreen() {
         frequency: transaction.frequency || TransactionFrequency.VARIABLE,
         date: editedDate,
         type: transaction.type,
-        paymentMethodId: editedPaymentMethod || ''
+        paymentMethodId: editedPaymentMethod || null
       };
       
       // Exibir log para depuração
@@ -453,16 +482,17 @@ export default function TransactionDetailScreen() {
               <View style={styles.detailRow}>
                 <Text style={[styles.detailLabel, { color: colors.muted }]}>Conta</Text>
                 <Text style={[styles.detailValue, { color: colors.text }]}>
-                  {transaction.account?.name || 'Conta'}
+                  {accounts.find(a => a.id === transaction.accountId)?.name || 'Conta não encontrada'}
                 </Text>
               </View>
             )}
             
-            {transaction.paymentMethodId && !isIncome && (
+            {transaction.paymentMethodId && transaction.paymentMethodId !== 'unknown' && !isIncome && (
               <View style={styles.detailRow}>
                 <Text style={[styles.detailLabel, { color: colors.muted }]}>Forma de Pagamento</Text>
                 <Text style={[styles.detailValue, { color: colors.text }]}>
-                  {getPaymentMethodById(transaction.paymentMethodId).name}
+                  {paymentMethods.find(m => m.id === transaction.paymentMethodId)?.name || 
+                   getPaymentMethodById(transaction.paymentMethodId).name}
                 </Text>
               </View>
             )}

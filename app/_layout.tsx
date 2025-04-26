@@ -10,7 +10,7 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/Colors';
 import ProtectedRouteGuard from '../components/ProtectedRouteGuard';
 import * as SplashScreen from 'expo-splash-screen';
-import { Text, View, StyleSheet, Platform } from 'react-native';
+import { Text, View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 
 // Impedir que a tela de splash seja escondida automaticamente
 SplashScreen.preventAutoHideAsync().catch((error) => {
@@ -63,6 +63,8 @@ export default function RootLayout() {
       const hideSplash = async () => {
         try {
           console.log('🎭 Escondendo splash screen...');
+          // Adicionamos um delay para garantir que tudo está pronto antes de ocultar o splash
+          await new Promise(resolve => setTimeout(resolve, 500));
           await SplashScreen.hideAsync();
           console.log('🎭 Splash screen escondida com sucesso');
         } catch (e) {
@@ -77,17 +79,18 @@ export default function RootLayout() {
   // Se acontecer um erro na inicialização, mostrar uma tela de erro
   if (initError) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Erro na inicialização</Text>
-        <Text style={styles.errorMessage}>{initError.message}</Text>
+      <View style={[styles.errorContainer, { backgroundColor: colorScheme === 'dark' ? '#121212' : '#fff0f0' }]}>
+        <Text style={[styles.errorTitle, { color: '#E53935' }]}>Erro na inicialização</Text>
+        <Text style={[styles.errorMessage, { color: colorScheme === 'dark' ? '#f0f0f0' : '#333' }]}>{initError.message}</Text>
       </View>
     );
   }
 
   if (!appIsReady || (!fontsLoaded && !fontError)) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Carregando...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: colorScheme === 'dark' ? '#121212' : '#ffffff' }]}>
+        <ActivityIndicator size="large" color={colorScheme === 'dark' ? Colors.dark.primary : Colors.light.primary} />
+        <Text style={[styles.loadingText, { color: colorScheme === 'dark' ? '#f0f0f0' : '#333' }]}>Carregando...</Text>
       </View>
     );
   }
@@ -99,7 +102,18 @@ export default function RootLayout() {
         <TransactionProvider>
           <StatusBar style="auto" />
           <ProtectedRouteGuard>
-            <Stack screenOptions={{ headerShown: false }}>
+            <Stack 
+              screenOptions={{ 
+                headerShown: false,
+                // Configurar animações mais suaves entre as telas
+                animation: 'fade',
+                animationDuration: 400,
+                // Evitar cintilações usando uma cor sólida de fundo
+                contentStyle: {
+                  backgroundColor: colorScheme === 'dark' ? '#121212' : '#ffffff',
+                }
+              }}
+            >
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="profile" options={{ headerShown: false }} />
               <Stack.Screen name="transactions/details" options={{ headerShown: false }} />
@@ -126,27 +140,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#ff000010',
   },
   errorTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#E53935',
   },
   errorMessage: {
     fontSize: 14,
     textAlign: 'center',
-    color: '#333',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
   },
   loadingText: {
     fontSize: 16,
-    color: '#333',
+    marginTop: 16,
   }
 });

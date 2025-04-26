@@ -121,7 +121,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
         
-        // Se não estiver, tentamos buscar o usuário pelo email no Firestore
+        // Buscar credenciais biométricas guardadas
+        try {
+          const bioAuthData = await AsyncStorage.getItem('biometric_credentials');
+          if (bioAuthData) {
+            const credentials = JSON.parse(bioAuthData);
+            // Verificar se temos a senha armazenada para este e-mail
+            const userCredential = credentials.find((cred: any) => 
+              cred.email === sanitizedEmail
+            );
+            
+            if (userCredential && userCredential.password) {
+              console.log('🔑 Login - Credenciais biométricas encontradas, tentando login automático');
+              // Usar as credenciais salvas para fazer login
+              await signInWithEmailAndPassword(auth, sanitizedEmail, userCredential.password);
+              console.log('🔑 Login - Login biométrico bem-sucedido!');
+              return;
+            }
+          }
+        } catch (storageError) {
+          console.error('🔑 Login - Erro ao acessar credenciais biométricas:', storageError);
+        }
+        
+        // Se não encontramos credenciais ou ocorreu erro, verificamos se o usuário existe
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('email', '==', sanitizedEmail));
         const querySnapshot = await getDocs(q);
@@ -130,12 +152,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           throw new Error('Usuário não encontrado. Faça login com email e senha.');
         }
         
-        // Usuário existe, mas precisamos que ele faça login manual
-        throw new Error('Autenticação biométrica falhou. Por favor, faça login com email e senha.');
+        // Usuário existe, mas não temos a senha salva para biometria
+        throw new Error('Autenticação biométrica falhou. Por favor, faça login com email e senha e ative a biometria novamente.');
       }
       
       // Continuar com o login normal com senha
       await signInWithEmailAndPassword(auth, sanitizedEmail, password);
+      
+      // Verificar se devemos salvar as credenciais para biometria
+      try {
+        const bioEnabled = await AsyncStorage.getItem('biometric_auth_enabled');
+        if (bioEnabled === 'true') {
+          console.log('🔑 Login - Salvando credenciais para uso com biometria');
+          // Buscar credenciais existentes ou criar array vazio
+          const existingDataStr = await AsyncStorage.getItem('biometric_credentials');
+          const existingData = existingDataStr ? JSON.parse(existingDataStr) : [];
+          
+          // Verificar se já existe entrada para este e-mail
+          const existingIndex = existingData.findIndex((item: any) => item.email === sanitizedEmail);
+          
+          // Criar ou atualizar entrada
+          const credentialEntry = {
+            email: sanitizedEmail,
+            password: password,
+            updatedAt: new Date().toISOString()
+          };
+          
+          if (existingIndex >= 0) {
+            // Atualizar entrada existente
+            existingData[existingIndex] = credentialEntry;
+          } else {
+            // Adicionar nova entrada
+            existingData.push(credentialEntry);
+          }
+          
+          // Salvar de volta no AsyncStorage
+          await AsyncStorage.setItem('biometric_credentials', JSON.stringify(existingData));
+          console.log('🔑 Login - Credenciais salvas com sucesso para biometria');
+        }
+      } catch (storageError) {
+        console.error('🔑 Login - Erro ao salvar credenciais biométricas:', storageError);
+        // Continuar mesmo se falhar a gravação - não é crítico
+      }
+      
+      // Importante: Não desativamos o loading aqui para evitar que a tela pisque
+      // O ProtectedRouteGuard irá cuidar da navegação
+      return;
     } catch (error: any) {
       console.error('🔑 Login - Erro no login:', error);
       let errorMsg = 'Falha ao fazer login';
@@ -153,9 +215,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       setError(errorMsg);
+      setIsLoading(false); // Só desativamos o loading em caso de erro
       throw new Error(errorMsg);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -234,7 +295,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Aguardar um pouco mais para garantir que o componente Root Layout esteja montado
       setTimeout(() => {
         router.replace('/(tabs)');
-      }, 1000); // Aumentando o tempo para 1 segundo
+      }, 1500); // Aumentando o tempo para garantir uma transição mais suave
     } catch (error: any) {
       console.error('🔥 Register - Erro no processo de registro:', error);
       let errorMsg = 'Falha ao criar conta';
@@ -271,7 +332,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Aguardar um pouco mais para garantir que o componente Root Layout esteja montado
       setTimeout(() => {
         router.replace('/auth/login');
-      }, 1000); // Aumentando o tempo para 1 segundo
+      }, 1500); // Aumentando o tempo para garantir uma transição mais suave
     } catch (error) {
       throw new Error('Falha ao fazer logout');
     } finally {
@@ -362,9 +423,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     console.log('🔐 AuthContext - Inicializando listener de autenticação');
     
+    // Flag para evitar atualizações de estado após desmontagem
+    let isMounted = true;
+    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('🔐 AuthContext - Estado de autenticação alterado:', 
         firebaseUser ? `Usuário autenticado: ${firebaseUser.email}` : 'Usuário não autenticado');
+      
+      // Aguardar um pouco para garantir que outras operações tenham terminado
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Verificar se o componente ainda está montado
+      if (!isMounted) return;
       
       if (firebaseUser) {
         // Usuário autenticado
@@ -376,24 +446,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Se o doc existe, usamos os dados do Firestore
             console.log('🔐 AuthContext - Documento do usuário encontrado no Firestore');
             const userData = userDoc.data() as FirestoreUserData;
-            setUser({
-              id: firebaseUser.uid,
-              name: userData.name,
-              email: userData.email,
-              photoURL: userData.photoURL,
-              createdAt: convertTimestampToDate(userData.createdAt)
-            });
             
-            // Carregar a preferência de tema salva no Firestore
-            if (userData.theme) {
-              try {
-                console.log('🔐 AuthContext - Aplicando tema salvo do usuário:', userData.theme);
-                // Usar o método global para definir o tema
-                if (typeof (useColorScheme as any).setTheme === 'function') {
-                  (useColorScheme as any).setTheme(userData.theme);
+            if (isMounted) {
+              setUser({
+                id: firebaseUser.uid,
+                name: userData.name,
+                email: userData.email,
+                photoURL: userData.photoURL,
+                createdAt: convertTimestampToDate(userData.createdAt)
+              });
+            
+              // Carregar a preferência de tema salva no Firestore
+              if (userData.theme) {
+                try {
+                  console.log('🔐 AuthContext - Aplicando tema salvo do usuário:', userData.theme);
+                  // Usar o método global para definir o tema
+                  if (typeof (useColorScheme as any).setTheme === 'function') {
+                    (useColorScheme as any).setTheme(userData.theme);
+                  }
+                } catch (themeError) {
+                  console.error('🔐 AuthContext - Erro ao aplicar tema do usuário:', themeError);
                 }
-              } catch (themeError) {
-                console.error('🔐 AuthContext - Erro ao aplicar tema do usuário:', themeError);
               }
             }
           } else {
@@ -406,18 +479,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               photoURL: newUser.photoURL,
               createdAt: serverTimestamp()
             });
-            setUser(newUser);
+            
+            if (isMounted) {
+              setUser(newUser);
+            }
           }
           console.log('🔐 AuthContext - Usuário definido com sucesso:', firebaseUser.email);
         } catch (error) {
           console.error('🔐 AuthContext - Erro ao carregar dados do usuário:', error);
           console.log('🔐 AuthContext - Usando dados básicos do Auth');
-          setUser(createUserObject(firebaseUser));
+          
+          if (isMounted) {
+            setUser(createUserObject(firebaseUser));
+          }
         }
       } else {
         // Usuário não autenticado
         console.log('🔐 AuthContext - Limpando dados do usuário (não autenticado)');
-        setUser(null);
+        
+        if (isMounted) {
+          setUser(null);
+        }
+        
         try {
           await AsyncStorage.removeItem('user');
           console.log('🔐 AuthContext - AsyncStorage limpo');
@@ -427,15 +510,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       console.log('🔐 AuthContext - Finalizando carregamento (setIsLoading(false))');
-      setIsLoading(false);
+      
+      if (isMounted) {
+        setIsLoading(false);
+      }
     }, (error) => {
       console.error('🔐 AuthContext - Erro no listener de autenticação:', error);
-      setIsLoading(false);
+      
+      if (isMounted) {
+        setIsLoading(false);
+      }
     });
     
     // Limpar listener ao desmontar
     return () => {
       console.log('🔐 AuthContext - Desmontando e limpando listener');
+      isMounted = false;
       unsubscribe();
     };
   }, []);

@@ -3,15 +3,20 @@
     "name": "Finance Manager",
     "slug": "finance-manager",
     "description": "Aplicativo de gestão financeira pessoal com visual moderno e minimalista",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/banco.png",
+    "icon": "./assets/images/banco512.png",
     "scheme": "financegestao",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/banco.png",
+      "image": "./assets/images/banco512.png",
       "resizeMode": "contain",
-      "backgroundColor": "#3366FF"
+      "backgroundColor": "#F9FAFB",
+      "dark": {
+        "image": "./assets/images/banco512.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#111827"
+      }
     },
     "assetBundlePatterns": [
       "**/*"
@@ -21,16 +26,21 @@
       "bundleIdentifier": "com.finance.manager",
       "buildNumber": "1",
       "splash": {
-        "image": "./assets/images/banco.png",
+        "image": "./assets/images/banco512.png",
         "resizeMode": "contain",
-        "backgroundColor": "#FFFFFF",
-        "tabletImage": "./assets/images/banco.png"
+        "backgroundColor": "#F9FAFB",
+        "dark": {
+          "image": "./assets/images/banco512.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#111827"
+        },
+        "tabletImage": "./assets/images/banco512.png"
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/banco.png",
-        "backgroundColor": "#3366FF"
+        "foregroundImage": "./assets/images/banco512.png",
+        "backgroundColor": "#F9FAFB"
       },
       "package": "com.finance.manager",
       "versionCode": 1,
@@ -41,15 +51,20 @@
         "android.permission.USE_FINGERPRINT"
       ],
       "splash": {
-        "image": "./assets/images/banco.png",
+        "image": "./assets/images/banco512.png",
         "resizeMode": "contain",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#F9FAFB",
+        "dark": {
+          "image": "./assets/images/banco512.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#111827"
+        }
       }
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/banco.png"
+      "favicon": "./assets/images/banco512.png"
     },
     "plugins": [
       "expo-router",

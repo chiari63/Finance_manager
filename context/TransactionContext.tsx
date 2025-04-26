@@ -162,7 +162,8 @@ const convertToTransaction = (doc: any): Transaction => {
     amount: data.amount,
     type: data.type as TransactionType,
     categoryId: data.categoryId,
-    paymentMethodId: data.paymentMethodId || '',
+    paymentMethodId: data.paymentMethodId || null,
+    accountId: data.accountId || null,
     date: convertFirestoreTimestampToDate(data.date),
     frequency: data.frequency as TransactionFrequency,
     description: data.description || '',
@@ -396,15 +397,13 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       
       const categorySummary = categorySummaryMap.get(categoryId) || {
         categoryId,
+        category,
         amount: 0,
-        count: 0,
-        category
+        count: 0
       };
       
-      categorySummary.amount = (categorySummary.amount || 0) + 
-        (transaction.type === TransactionType.INCOME ? transaction.amount : -transaction.amount);
+      categorySummary.amount = (categorySummary.amount || 0) + transaction.amount;
       categorySummary.count = (categorySummary.count || 0) + 1;
-      
       categorySummaryMap.set(categoryId, categorySummary);
     });
     
@@ -451,7 +450,92 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         } : null
       };
       
-      await addDoc(transactionsCollectionRef, transactionData);
+      console.log(`🔄 Iniciando adição de transação: ${transaction.description} - Valor: ${transaction.amount} - Tipo: ${transaction.type}`);
+      console.log(`🔄 Categoria: ${transaction.categoryId} - Conta: ${transaction.accountId || 'Nenhuma'}`);
+      
+      // Verificar se é uma receita que deve atualizar o saldo de uma conta
+      if (
+        transaction.type === TransactionType.INCOME && 
+        ['salary', 'bonus', 'investment'].includes(transaction.categoryId) && 
+        transaction.accountId
+      ) {
+        console.log(`📝 Transação é uma receita (${transaction.categoryId}) que deve atualizar o saldo da conta ${transaction.accountId}`);
+        
+        // Atualizar o saldo da conta relacionada
+        const accountRef = doc(db, 'users', user.id, 'bankAccounts', transaction.accountId);
+        const accountSnap = await getDoc(accountRef);
+        
+        if (accountSnap.exists()) {
+          const accountData = accountSnap.data();
+          const currentBalance = accountData.balance || 0;
+          const newBalance = currentBalance + transaction.amount;
+          
+          console.log(`💰 Saldo atual da conta "${accountData.name}": ${currentBalance}`);
+          console.log(`➕ Adicionando valor da transação: ${transaction.amount}`);
+          console.log(`💰 Novo saldo calculado: ${newBalance}`);
+          
+          // Atualizar o saldo da conta
+          await updateDoc(accountRef, {
+            balance: newBalance,
+            lastUpdate: serverTimestamp()
+          });
+          
+          console.log(`✅ Saldo da conta ${accountData.name} atualizado: ${currentBalance} + ${transaction.amount} = ${newBalance}`);
+          
+          // Verificação após atualização
+          const verifyAccountSnap = await getDoc(accountRef);
+          if (verifyAccountSnap.exists()) {
+            const verifyAccountData = verifyAccountSnap.data();
+            console.log(`✓ Verificação: Novo saldo da conta após atualização: ${verifyAccountData.balance}`);
+          }
+        } else {
+          console.error(`❌ Conta com ID ${transaction.accountId} não encontrada!`);
+        }
+      }
+      
+      // Verificar se é uma despesa que deve reduzir o saldo de uma conta
+      if (
+        transaction.type === TransactionType.EXPENSE && 
+        transaction.accountId &&
+        // Não reduzir saldo para compras no crédito
+        !(transaction.paymentMethodId && 
+        paymentMethods.find(m => m.id === transaction.paymentMethodId)?.type === 'credit')
+      ) {
+        console.log(`📝 Transação é uma despesa que deve reduzir o saldo da conta ${transaction.accountId}`);
+        
+        // Atualizar o saldo da conta relacionada
+        const accountRef = doc(db, 'users', user.id, 'bankAccounts', transaction.accountId);
+        const accountSnap = await getDoc(accountRef);
+        
+        if (accountSnap.exists()) {
+          const accountData = accountSnap.data();
+          const currentBalance = accountData.balance || 0;
+          const newBalance = currentBalance - transaction.amount;
+          
+          console.log(`💰 Saldo atual da conta "${accountData.name}": ${currentBalance}`);
+          console.log(`➖ Subtraindo valor da transação: ${transaction.amount}`);
+          console.log(`💰 Novo saldo calculado: ${newBalance}`);
+          
+          // Atualizar o saldo da conta
+          await updateDoc(accountRef, {
+            balance: newBalance,
+            lastUpdate: serverTimestamp()
+          });
+          
+          console.log(`✅ Saldo da conta ${accountData.name} atualizado: ${currentBalance} - ${transaction.amount} = ${newBalance}`);
+          
+          // Verificação após atualização
+          const verifyAccountSnap = await getDoc(accountRef);
+          if (verifyAccountSnap.exists()) {
+            const verifyAccountData = verifyAccountSnap.data();
+            console.log(`✓ Verificação: Novo saldo da conta após atualização: ${verifyAccountData.balance}`);
+          }
+        }
+      }
+      
+      // Adicionar a transação ao Firestore
+      const docRef = await addDoc(transactionsCollectionRef, transactionData);
+      console.log(`✅ Transação adicionada com sucesso! ID: ${docRef.id}`);
       
       // As atualizações serão feitas pelo listener onSnapshot
     } catch (error) {
@@ -468,16 +552,130 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     
     try {
+      // Primeiro, obter a transação original para comparar valores
       const transactionRef = doc(db, 'users', user.id, 'transactions', transaction.id);
+      const transactionSnap = await getDoc(transactionRef);
       
-      // Preparar dados para o Firestore
+      if (transactionSnap.exists()) {
+        const originalTransaction = convertToTransaction(transactionSnap);
+        
+        // Se houve alteração na conta ou valor, precisamos ajustar os saldos
+        if (
+          // Valor alterado ou conta alterada
+          originalTransaction.amount !== transaction.amount ||
+          originalTransaction.accountId !== transaction.accountId ||
+          originalTransaction.type !== transaction.type ||
+          originalTransaction.categoryId !== transaction.categoryId
+        ) {
+          // 1. Se a transação original era uma receita que afetava uma conta, reverter o incremento
+          if (
+            originalTransaction.type === TransactionType.INCOME && 
+            ['salary', 'bonus', 'investment'].includes(originalTransaction.categoryId) && 
+            originalTransaction.accountId
+          ) {
+            const accountRef = doc(db, 'users', user.id, 'bankAccounts', originalTransaction.accountId);
+            const accountSnap = await getDoc(accountRef);
+            
+            if (accountSnap.exists()) {
+              const accountData = accountSnap.data();
+              const currentBalance = accountData.balance || 0;
+              const newBalance = currentBalance - originalTransaction.amount;
+              
+              // Atualizar o saldo da conta original (reverter o crédito)
+              await updateDoc(accountRef, {
+                balance: newBalance,
+                lastUpdate: serverTimestamp()
+              });
+              
+              console.log(`✅ Reversão do crédito na conta ${accountData.name}: ${currentBalance} - ${originalTransaction.amount} = ${newBalance}`);
+            }
+          }
+          
+          // 2. Se a transação original era uma despesa que afetava uma conta, reverter a dedução
+          if (
+            originalTransaction.type === TransactionType.EXPENSE && 
+            originalTransaction.accountId &&
+            !(originalTransaction.paymentMethodId && 
+             paymentMethods.find(m => m.id === originalTransaction.paymentMethodId)?.type === 'credit')
+          ) {
+            const accountRef = doc(db, 'users', user.id, 'bankAccounts', originalTransaction.accountId);
+            const accountSnap = await getDoc(accountRef);
+            
+            if (accountSnap.exists()) {
+              const accountData = accountSnap.data();
+              const currentBalance = accountData.balance || 0;
+              const newBalance = currentBalance + originalTransaction.amount;
+              
+              // Atualizar o saldo da conta original (reverter a dedução)
+              await updateDoc(accountRef, {
+                balance: newBalance,
+                lastUpdate: serverTimestamp()
+              });
+              
+              console.log(`✅ Reversão da dedução na conta ${accountData.name}: ${currentBalance} + ${originalTransaction.amount} = ${newBalance}`);
+            }
+          }
+          
+          // 3. Se a nova transação é uma receita que afeta uma conta, aplicar o incremento
+          if (
+            transaction.type === TransactionType.INCOME && 
+            ['salary', 'bonus', 'investment'].includes(transaction.categoryId) && 
+            transaction.accountId
+          ) {
+            const accountRef = doc(db, 'users', user.id, 'bankAccounts', transaction.accountId);
+            const accountSnap = await getDoc(accountRef);
+            
+            if (accountSnap.exists()) {
+              const accountData = accountSnap.data();
+              const currentBalance = accountData.balance || 0;
+              const newBalance = currentBalance + transaction.amount;
+              
+              // Atualizar o saldo da nova conta (aplicar o crédito)
+              await updateDoc(accountRef, {
+                balance: newBalance,
+                lastUpdate: serverTimestamp()
+              });
+              
+              console.log(`✅ Crédito aplicado na conta ${accountData.name}: ${currentBalance} + ${transaction.amount} = ${newBalance}`);
+            }
+          }
+          
+          // 4. Se a nova transação é uma despesa que afeta uma conta, aplicar a dedução
+          if (
+            transaction.type === TransactionType.EXPENSE && 
+            transaction.accountId &&
+            !(transaction.paymentMethodId && 
+             paymentMethods.find(m => m.id === transaction.paymentMethodId)?.type === 'credit')
+          ) {
+            const accountRef = doc(db, 'users', user.id, 'bankAccounts', transaction.accountId);
+            const accountSnap = await getDoc(accountRef);
+            
+            if (accountSnap.exists()) {
+              const accountData = accountSnap.data();
+              const currentBalance = accountData.balance || 0;
+              const newBalance = currentBalance - transaction.amount;
+              
+              // Atualizar o saldo da nova conta (aplicar a dedução)
+              await updateDoc(accountRef, {
+                balance: newBalance,
+                lastUpdate: serverTimestamp()
+              });
+              
+              console.log(`✅ Dedução aplicada na conta ${accountData.name}: ${currentBalance} - ${transaction.amount} = ${newBalance}`);
+            }
+          }
+        }
+      }
+      
+      // Atualizar a transação com os novos dados
       await updateDoc(transactionRef, {
         title: transaction.title,
         amount: transaction.amount,
         type: transaction.type,
         categoryId: transaction.categoryId,
         date: Timestamp.fromDate(transaction.date),
-        paymentMethodId: transaction.paymentMethodId,
+        paymentMethodId: transaction.paymentMethodId || null,
+        accountId: transaction.accountId || null,
         frequency: transaction.frequency,
         description: transaction.description,
         installment: transaction.installment ? {
@@ -495,14 +693,123 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Função para recalcular o saldo de uma conta baseado no histórico de transações
+  const recalculateAccountBalance = async (accountId: string) => {
+    if (!user) return;
+    
+    try {
+      console.log(`🔄 Recalculando saldo para a conta ${accountId} baseado no histórico de transações...`);
+      
+      const accountRef = doc(db, 'users', user.id, 'bankAccounts', accountId);
+      const accountSnap = await getDoc(accountRef);
+      
+      if (!accountSnap.exists()) {
+        console.error(`❌ Conta com ID ${accountId} não encontrada durante recálculo!`);
+        return;
+      }
+      
+      const accountData = accountSnap.data();
+      
+      // Verificar se a conta tem uma atualização manual recente (nos últimos 1 minuto)
+      const hasManualUpdate = accountData.manualUpdate === true;
+      const lastUpdateTime = accountData.lastUpdate ? accountData.lastUpdate.toDate() : new Date(0);
+      const now = new Date();
+      const timeDiffInMs = now.getTime() - lastUpdateTime.getTime();
+      const isRecentUpdate = timeDiffInMs < 60000; // 1 minuto
+      
+      if (hasManualUpdate && isRecentUpdate) {
+        console.log(`ℹ️ Conta ${accountId} tem uma atualização manual recente. Respeitando o saldo definido pelo usuário: ${accountData.balance}`);
+        return accountData.balance;
+      }
+      
+      // Obter todas as transações relacionadas a esta conta
+      const transactionsCollectionRef = collection(db, 'users', user.id, 'transactions');
+      const q = query(
+        transactionsCollectionRef,
+        where('accountId', '==', accountId)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      let calculatedBalance = 0;
+      
+      // Para cada transação, ajustar o saldo
+      querySnapshot.docs.forEach(doc => {
+        const transaction = convertToTransaction(doc);
+        
+        // Receitas que afetam o saldo (salário, bônus, investimento)
+        if (
+          transaction.type === TransactionType.INCOME && 
+          ['salary', 'bonus', 'investment'].includes(transaction.categoryId)
+        ) {
+          calculatedBalance += transaction.amount;
+          console.log(`➕ Transação ${transaction.id}: Adicionando ${transaction.amount} (${transaction.title})`);
+        }
+        
+        // Despesas que afetam o saldo (exceto compras no crédito)
+        else if (
+          transaction.type === TransactionType.EXPENSE &&
+          !(transaction.paymentMethodId && 
+            paymentMethods.find(m => m.id === transaction.paymentMethodId)?.type === 'credit')
+        ) {
+          calculatedBalance -= transaction.amount;
+          console.log(`➖ Transação ${transaction.id}: Subtraindo ${transaction.amount} (${transaction.title})`);
+        }
+      });
+      
+      // Atualizar o saldo da conta
+      await updateDoc(accountRef, {
+        balance: calculatedBalance,
+        lastUpdate: serverTimestamp(),
+        manualUpdate: false // Marcar como atualização automática
+      });
+      
+      console.log(`✅ Saldo da conta recalculado automaticamente: ${calculatedBalance}`);
+      return calculatedBalance;
+    } catch (error) {
+      console.error('Erro ao recalcular saldo da conta:', error);
+      throw error;
+    }
+  };
+
   // Exclui uma transação
   const deleteTransaction = async (id: string) => {
     if (!user) return;
     setIsLoading(true);
     
     try {
+      console.log(`🗑️ Iniciando exclusão de transação: ${id}`);
+      
       const transactionRef = doc(db, 'users', user.id, 'transactions', id);
-      await deleteDoc(transactionRef);
+      const transactionSnap = await getDoc(transactionRef);
+      
+      if (transactionSnap.exists()) {
+        const transaction = convertToTransaction(transactionSnap);
+        console.log(`📊 Dados da transação a excluir:`, {
+          id: transaction.id,
+          title: transaction.title,
+          amount: transaction.amount,
+          type: transaction.type === TransactionType.INCOME ? 'RECEITA' : 'DESPESA',
+          categoryId: transaction.categoryId,
+          accountId: transaction.accountId
+        });
+        
+        // Verificar se a transação afeta alguma conta
+        if (transaction.accountId) {
+          // Primeiro, excluir a transação
+          await deleteDoc(transactionRef);
+          console.log(`✅ Transação excluída com sucesso`);
+          
+          // Agora, recalcular o saldo da conta baseado no histórico atualizado
+          await recalculateAccountBalance(transaction.accountId);
+        } else {
+          // Se não afeta nenhuma conta, apenas excluir
+          await deleteDoc(transactionRef);
+          console.log(`✅ Transação excluída com sucesso`);
+          console.log(`ℹ️ Transação não estava associada a nenhuma conta, não foi necessário ajustar saldos.`);
+        }
+      } else {
+        console.error(`❌ Transação com ID ${id} não encontrada!`);
+      }
       
       // As atualizações serão feitas pelo listener onSnapshot
     } catch (error) {
@@ -541,15 +848,23 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     
     try {
+      console.log(`🔄 Atualizando conta: ${account.id} - ${account.name}`);
+      console.log(`💰 Novo saldo definido manualmente: ${account.balance}`);
+      
       const accountRef = doc(db, 'users', user.id, 'bankAccounts', account.id);
       
+      // Priorizar atualizações manuais do saldo definido pelo usuário
       await updateDoc(accountRef, {
         name: account.name,
         balance: account.balance,
         type: account.type,
         color: account.color,
-        icon: account.icon
+        icon: account.icon,
+        lastUpdate: serverTimestamp(),
+        manualUpdate: true // Marcar como atualização manual
       });
+      
+      console.log(`✅ Conta atualizada com sucesso. Saldo definido manualmente para: ${account.balance}`);
       
       // As atualizações serão feitas pelo listener onSnapshot
     } catch (error) {
@@ -643,13 +958,36 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       
       await Promise.all(deletePromises);
       
+      // Também zerar os saldos de todas as contas bancárias
+      console.log('🗑️ Zerando saldos de todas as contas bancárias...');
+      const accountsCollectionRef = collection(db, 'users', user.id, 'bankAccounts');
+      const accountsSnapshot = await getDocs(accountsCollectionRef);
+      
+      const resetBalancePromises = accountsSnapshot.docs.map(doc => 
+        updateDoc(doc.ref, { 
+          balance: 0,
+          lastUpdate: serverTimestamp()
+        })
+      );
+      
+      await Promise.all(resetBalancePromises);
+      
       // Recarregar os dados após a limpeza
       setTransactions([]);
       updateSummaries([]);
-      console.log('✅ Transações excluídas com sucesso!');
+      
+      // Forçar a atualização das contas no estado local
+      const updatedAccounts = accounts.map(account => ({
+        ...account,
+        balance: 0
+      }));
+      setAccounts(updatedAccounts);
+      updateAccountBalances(updatedAccounts);
+      
+      console.log('✅ Transações excluídas e saldos de contas zerados com sucesso!');
     } catch (error) {
-      console.error('Erro ao limpar transações:', error);
-      setError('Falha ao limpar transações');
+      console.error('Erro ao limpar transações e zerar saldos:', error);
+      setError('Falha ao limpar dados');
     } finally {
       setIsLoading(false);
     }

@@ -53,7 +53,35 @@ export const IncomeBreakdownCard: React.FC<IncomeBreakdownProps> = ({
   categorySummaries.sort((a, b) => b.total - a.total);
 
   if (incomeTransactions.length === 0) {
-    return null;
+    return (
+      <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+          {onViewAllPress && (
+            <TouchableOpacity onPress={onViewAllPress}>
+              <Text style={[styles.viewAllText, { color: colors.primary }]}>Ver tudo</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.totalContainer}>
+          <Text style={[styles.totalLabel, { color: colors.muted }]}>Total Recebido</Text>
+          <Text style={[styles.totalValue, { color: colors.income }]}>{formatCurrency(0)}</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.emptyStateContainer}>
+          <MaterialCommunityIcons name="cash-plus" size={40} color={colors.muted} />
+          <Text style={[styles.emptyStateText, { color: colors.muted }]}>
+            Nenhuma receita registrada neste mês
+          </Text>
+          <Text style={[styles.emptyStateSubtext, { color: colors.muted }]}>
+            Adicione receitas para visualizar seu resumo financeiro
+          </Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -227,5 +255,21 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 3,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    marginTop: 6,
+    textAlign: 'center',
   },
 }); 

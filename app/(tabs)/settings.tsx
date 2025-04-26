@@ -425,10 +425,7 @@ export default function SettingsScreen() {
       {/* Informações do App */}
       <View style={styles.footer}>
         <Text style={[styles.appVersion, { color: colors.muted }]}>
-          Finance Manager v1.0.0
-        </Text>
-        <Text style={[styles.appCopyright, { color: colors.muted }]}>
-          © 2023 Todos os direitos reservados
+          Finance Manager v1.0.1
         </Text>
       </View>
 

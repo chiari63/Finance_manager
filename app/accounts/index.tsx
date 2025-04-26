@@ -6,52 +6,34 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/context/AuthContext';
-
-interface BankAccount {
-  id: string;
-  name: string;
-  bank: string;
-  type: 'current' | 'savings' | 'investment' | 'digital';
-  color: string;
-  balance: number;
-  lastUpdate: Date | { toDate: () => Date } | null;
-}
+import { useTransactions } from '@/context/TransactionContext';
+import { BalanceAccount } from '@/types/TransactionTypes';
 
 export default function AccountsScreen() {
   const { user } = useAuth();
-  const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const { accounts, loadAccounts, deleteAccount } = useTransactions();
   const [loading, setLoading] = useState(true);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
   useEffect(() => {
-    fetchAccounts();
-  }, []);
-
-  const fetchAccounts = async () => {
-    if (!user) return;
+    const loadAccountsData = async () => {
+      try {
+        setLoading(true);
+        await loadAccounts();
+      } catch (error) {
+        console.error('Erro ao carregar contas:', error);
+        Alert.alert('Erro', 'Não foi possível carregar suas contas bancárias.');
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    try {
-      setLoading(true);
-      const accountsCollection = collection(db, `users/${user.id}/bankAccounts`);
-      const accountsSnapshot = await getDocs(accountsCollection);
-      
-      const accountsList: BankAccount[] = [];
-      accountsSnapshot.forEach((doc) => {
-        accountsList.push({ id: doc.id, ...doc.data() } as BankAccount);
-      });
-      
-      setAccounts(accountsList);
-    } catch (error) {
-      console.error('Erro ao buscar contas bancárias:', error);
-      Alert.alert('Erro', 'Não foi possível carregar suas contas bancárias.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    loadAccountsData();
+  }, []);
 
   const handleAddAccount = () => {
     router.push({
@@ -79,8 +61,7 @@ export default function AccountsScreen() {
             if (!user) return;
             
             try {
-              await deleteDoc(doc(db, `users/${user.id}/bankAccounts/${accountId}`));
-              setAccounts(accounts.filter(account => account.id !== accountId));
+              await deleteAccount(accountId);
               Alert.alert('Sucesso', 'Conta removida com sucesso!');
             } catch (error) {
               console.error('Erro ao remover conta:', error);
@@ -92,15 +73,11 @@ export default function AccountsScreen() {
     );
   };
 
-  const renderAccountItem = ({ item }: { item: BankAccount }) => {
+  const renderAccountItem = ({ item }: { item: BalanceAccount }) => {
     const gradientColors = [item.color || '#4F44FF', adjustColor(item.color || '#4F44FF', -30)];
     
-    // Converter o timestamp do Firestore para Date se necessário
-    const lastUpdate = item.lastUpdate instanceof Date 
-      ? item.lastUpdate 
-      : item.lastUpdate?.toDate 
-        ? item.lastUpdate.toDate() 
-        : new Date();
+    // Obter a data atual formatada para a atualização
+    const currentDate = new Date().toLocaleDateString();
     
     return (
       <TouchableOpacity 
@@ -124,7 +101,6 @@ export default function AccountsScreen() {
               </TouchableOpacity>
             </View>
             
-            <Text style={styles.accountType}>{item.bank}</Text>
             <Text style={styles.accountType}>{getAccountTypeLabel(item.type)}</Text>
             
             <View style={styles.balanceContainer}>
@@ -135,7 +111,7 @@ export default function AccountsScreen() {
             </View>
             
             <Text style={styles.lastUpdate}>
-              Atualizado em: {lastUpdate.toLocaleDateString()}
+              Atualizado em: {currentDate}
             </Text>
           </View>
         </LinearGradient>
@@ -145,9 +121,12 @@ export default function AccountsScreen() {
 
   const getAccountTypeLabel = (type: string) => {
     const types = {
+      cash: 'Dinheiro',
+      bank: 'Conta Bancária',
+      investment: 'Investimento',
+      voucher: 'Vale-Refeição',
       current: 'Conta Corrente',
       savings: 'Conta Poupança',
-      investment: 'Conta Investimento',
       digital: 'Conta Digital'
     };
     return types[type as keyof typeof types] || type;

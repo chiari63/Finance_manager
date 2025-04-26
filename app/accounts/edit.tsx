@@ -17,9 +17,11 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { doc, getDoc, setDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { useTransactions } from '@/context/TransactionContext';
+import { BalanceAccount } from '@/types/TransactionTypes';
 
 // Lista de cores disponíveis para contas bancárias
 const ACCOUNT_COLORS = [
@@ -37,81 +39,66 @@ const ACCOUNT_COLORS = [
 
 // Lista de tipos de contas
 const ACCOUNT_TYPES = [
-  { id: 'current', label: 'Conta Corrente' },
-  { id: 'savings', label: 'Conta Poupança' },
+  { id: 'bank', label: 'Conta Corrente' },
+  { id: 'bank', label: 'Conta Poupança' },
   { id: 'investment', label: 'Conta Investimento' },
-  { id: 'digital', label: 'Conta Digital' }
+  { id: 'cash', label: 'Dinheiro' },
+  { id: 'voucher', label: 'Vale-Refeição' }
 ];
 
-interface BankAccount {
-  id?: string;
-  name: string;
-  bank: string;
-  type: 'current' | 'savings' | 'investment' | 'digital';
-  color: string;
-  balance: number;
-  lastUpdate: Date;
-}
-
 export default function EditAccountScreen() {
-  const { user } = useAuth();
-  const params = useLocalSearchParams<{ id: string }>();
-  const accountId = params.id;
-  const isEditing = !!accountId;
+  const params = useLocalSearchParams();
+  const accountId = params.id as string | undefined;
+  const isEditing = Boolean(accountId);
   
+  const { user } = useAuth();
+  const { addAccount, updateAccount } = useTransactions();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   
-  const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
-  const [account, setAccount] = useState<BankAccount>({
-    name: '',
-    bank: '',
-    type: 'current',
-    color: ACCOUNT_COLORS[0],
-    balance: 0,
-    lastUpdate: new Date()
-  });
-  
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
   
+  const [account, setAccount] = useState<Partial<BalanceAccount>>({
+    name: '',
+    type: 'bank',
+    color: ACCOUNT_COLORS[0],
+    balance: 0,
+    icon: 'bank'
+  });
+  
   useEffect(() => {
-    if (isEditing && user) {
+    if (isEditing && accountId && user) {
+      const fetchAccount = async () => {
+        try {
+          const accountRef = doc(db, `users/${user.id}/bankAccounts/${accountId}`);
+          const accountSnap = await getDoc(accountRef);
+          
+          if (accountSnap.exists()) {
+            const accountData = accountSnap.data();
+            setAccount({
+              id: accountId,
+              name: accountData.name,
+              type: accountData.type,
+              color: accountData.color,
+              balance: accountData.balance,
+              icon: accountData.icon || 'bank'
+            });
+          } else {
+            Alert.alert('Erro', 'Conta não encontrada.');
+            router.back();
+          }
+        } catch (error) {
+          console.error('Erro ao buscar dados da conta:', error);
+          Alert.alert('Erro', 'Não foi possível carregar os dados da conta.');
+          router.back();
+        }
+      };
+      
       fetchAccount();
     }
-  }, [accountId, user]);
-  
-  const fetchAccount = async () => {
-    if (!user || !accountId) return;
-    
-    try {
-      setLoading(true);
-      const accountDoc = await getDoc(doc(db, `users/${user.id}/bankAccounts/${accountId}`));
-      
-      if (accountDoc.exists()) {
-        const accountData = accountDoc.data() as BankAccount;
-        setAccount({
-          id: accountId,
-          name: accountData.name || '',
-          bank: accountData.bank || '',
-          type: accountData.type || 'current',
-          color: accountData.color || ACCOUNT_COLORS[0],
-          balance: accountData.balance || 0,
-          lastUpdate: accountData.lastUpdate ? new Date(accountData.lastUpdate) : new Date()
-        });
-      } else {
-        Alert.alert('Erro', 'Conta bancária não encontrada.');
-        router.back();
-      }
-    } catch (error) {
-      console.error('Erro ao buscar conta bancária:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os dados da conta.');
-      router.back();
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isEditing, accountId, user]);
   
   const handleSave = async () => {
     if (!user) {
@@ -120,35 +107,30 @@ export default function EditAccountScreen() {
     }
     
     // Validação dos campos
-    if (!account.name.trim()) {
+    if (!account.name?.trim()) {
       Alert.alert('Erro', 'Informe o nome da conta.');
-      return;
-    }
-    
-    if (!account.bank.trim()) {
-      Alert.alert('Erro', 'Informe o nome do banco.');
       return;
     }
     
     try {
       setSaving(true);
       
-      const accountData = {
+      const accountData: BalanceAccount = {
+        id: account.id || '',
         name: account.name,
-        bank: account.bank,
-        type: account.type,
-        color: account.color,
-        balance: account.balance,
-        lastUpdate: account.lastUpdate
+        type: account.type || 'bank',
+        color: account.color || ACCOUNT_COLORS[0],
+        balance: account.balance || 0,
+        icon: account.icon || 'bank'
       };
       
       if (isEditing && accountId) {
         // Atualizando conta existente
-        await updateDoc(doc(db, `users/${user.id}/bankAccounts/${accountId}`), accountData);
+        await updateAccount(accountData);
         Alert.alert('Sucesso', 'Conta atualizada com sucesso!');
       } else {
         // Criando nova conta
-        await addDoc(collection(db, `users/${user.id}/bankAccounts`), accountData);
+        await addAccount(accountData);
         Alert.alert('Sucesso', 'Conta adicionada com sucesso!');
       }
       
@@ -170,85 +152,86 @@ export default function EditAccountScreen() {
     });
   };
   
-  const renderColorPicker = () => {
-    return (
-      <View style={styles.pickerContainer}>
-        <View style={styles.pickerHeader}>
-          <Text style={[styles.pickerTitle, { color: colors.text }]}>Escolha uma cor</Text>
-          <TouchableOpacity onPress={() => setShowColorPicker(false)}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.colorGrid}>
-          {ACCOUNT_COLORS.map((color) => (
-            <TouchableOpacity
-              key={color}
-              style={[
-                styles.colorItem,
-                { backgroundColor: color },
-                account.color === color && styles.colorItemSelected
-              ]}
-              onPress={() => {
-                setAccount({ ...account, color });
-                setShowColorPicker(false);
-              }}
-            />
-          ))}
-        </View>
-      </View>
-    );
+  // Selecionar tipo de conta
+  const handleSelectType = (type: string) => {
+    setAccount({
+      ...account,
+      type: type as 'bank' | 'investment' | 'cash' | 'voucher'
+    });
+    setShowTypePicker(false);
   };
   
+  // Selecionar cor
+  const handleSelectColor = (color: string) => {
+    setAccount({
+      ...account,
+      color
+    });
+    setShowColorPicker(false);
+  };
+  
+  // Renderiza o seletor de cor
+  const renderColorPicker = () => {
+    return (
+      <TouchableOpacity 
+        style={styles.modalContainer}
+        activeOpacity={1}
+        onPress={() => setShowColorPicker(false)}
+      >
+        <View style={[styles.colorPickerContainer, { backgroundColor: colors.card }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Escolha uma cor</Text>
+          
+          <View style={styles.colorGrid}>
+            {ACCOUNT_COLORS.map(color => (
+              <TouchableOpacity
+                key={color}
+                style={[
+                  styles.colorOption,
+                  { backgroundColor: color },
+                  account.color === color && styles.selectedColorOption
+                ]}
+                onPress={() => handleSelectColor(color)}
+              />
+            ))}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Renderiza o seletor de tipo de conta
   const renderTypePicker = () => {
     return (
-      <View style={styles.pickerContainer}>
-        <View style={styles.pickerHeader}>
-          <Text style={[styles.pickerTitle, { color: colors.text }]}>Tipo de conta</Text>
-          <TouchableOpacity onPress={() => setShowTypePicker(false)}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
-        
-        <ScrollView>
-          {ACCOUNT_TYPES.map((type) => (
+      <TouchableOpacity 
+        style={styles.modalContainer}
+        activeOpacity={1}
+        onPress={() => setShowTypePicker(false)}
+      >
+        <View style={[styles.pickerContainer, { backgroundColor: colors.card }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Tipo de Conta</Text>
+          
+          {ACCOUNT_TYPES.map(type => (
             <TouchableOpacity
-              key={type.id}
+              key={type.id + type.label}
               style={[
-                styles.typeItem,
-                { borderBottomColor: colors.border }
+                styles.typeOption,
+                account.type === type.id && { backgroundColor: colors.primary + '20' }
               ]}
-              onPress={() => {
-                setAccount({ ...account, type: type.id });
-                setShowTypePicker(false);
-              }}
+              onPress={() => handleSelectType(type.id)}
             >
               <Text style={[
-                styles.typeItemText, 
+                styles.typeOptionText, 
                 { color: colors.text },
                 account.type === type.id && { fontWeight: 'bold', color: colors.primary }
               ]}>
                 {type.label}
               </Text>
-              {account.type === type.id && (
-                <Ionicons name="checkmark" size={20} color={colors.primary} />
-              )}
             </TouchableOpacity>
           ))}
-        </ScrollView>
-      </View>
+        </View>
+      </TouchableOpacity>
     );
   };
-  
-  if (loading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.text }]}>Carregando...</Text>
-      </View>
-    );
-  }
   
   return (
     <KeyboardAvoidingView 
@@ -270,47 +253,18 @@ export default function EditAccountScreen() {
         <View style={{ width: 24 }} />
       </View>
       
-      <ScrollView style={styles.content}>
-        <LinearGradient
-          colors={[account.color, adjustColor(account.color, -30)]}
-          style={styles.cardPreview}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Text style={styles.previewLabel}>Visualização</Text>
-          <Text style={styles.previewBankName}>
-            {account.bank || 'Nome do Banco'}
-          </Text>
-          <Text style={styles.previewAccountType}>
-            {ACCOUNT_TYPES.find(t => t.id === account.type)?.label || 'Selecione'}
-          </Text>
-          <View style={styles.previewInfo}>
-            <Text style={styles.previewInfoLabel}>Saldo</Text>
-            <Text style={styles.previewInfoValue}>
-              R$ {account.balance.toFixed(2).replace('.', ',')}
-            </Text>
-          </View>
-        </LinearGradient>
-        
-        <View style={[styles.formCard, { backgroundColor: colors.card }]}>
+      <ScrollView
+        style={styles.formContainer}
+        contentContainerStyle={styles.formContent}
+      >
+        <View style={styles.formFields}>
           <View style={styles.formRow}>
-            <Text style={[styles.label, { color: colors.text }]}>Nome da Conta</Text>
+            <Text style={[styles.label, { color: colors.text }]}>Nome</Text>
             <TextInput
               style={[styles.input, { color: colors.text, borderColor: colors.border }]}
               value={account.name}
               onChangeText={(text) => setAccount({ ...account, name: text })}
-              placeholder="Ex: Conta Principal"
-              placeholderTextColor={colors.muted}
-            />
-          </View>
-          
-          <View style={styles.formRow}>
-            <Text style={[styles.label, { color: colors.text }]}>Banco</Text>
-            <TextInput
-              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-              value={account.bank}
-              onChangeText={(text) => setAccount({ ...account, bank: text })}
-              placeholder="Ex: Banco do Brasil"
+              placeholder="Minha Conta"
               placeholderTextColor={colors.muted}
             />
           </View>
@@ -319,12 +273,12 @@ export default function EditAccountScreen() {
             style={[styles.formRow, styles.pickerButton]}
             onPress={() => setShowTypePicker(true)}
           >
-            <Text style={[styles.label, { color: colors.text }]}>Tipo de Conta</Text>
-            <View style={[styles.pickerValueContainer, { borderColor: colors.border }]}>
+            <Text style={[styles.label, { color: colors.text }]}>Tipo</Text>
+            <View style={styles.pickerValueContainer}>
               <Text style={[styles.pickerValue, { color: colors.text }]}>
-                {ACCOUNT_TYPES.find(t => t.id === account.type)?.label || 'Selecione'}
+                {ACCOUNT_TYPES.find(t => t.id === account.type)?.label || 'Conta Corrente'}
               </Text>
-              <Ionicons name="chevron-down" size={18} color={colors.muted} />
+              <MaterialCommunityIcons name="chevron-down" size={20} color={colors.muted} />
             </View>
           </TouchableOpacity>
           
@@ -332,7 +286,7 @@ export default function EditAccountScreen() {
             <Text style={[styles.label, { color: colors.text }]}>Saldo</Text>
             <TextInput
               style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-              value={account.balance.toString().replace('.', ',')}
+              value={account.balance?.toString().replace('.', ',') || '0'}
               onChangeText={handleBalanceChange}
               placeholder="0,00"
               placeholderTextColor={colors.muted}
@@ -379,24 +333,9 @@ export default function EditAccountScreen() {
   );
 }
 
-// Função para ajustar a cor para criar um gradiente
-const adjustColor = (color: string, amount: number): string => {
-  return color;
-  // Uma implementação real precisaria converter a cor para RGB, ajustar e retornar
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
   },
   header: {
     flexDirection: 'row',
@@ -413,49 +352,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
-  content: {
+  formContainer: {
     flex: 1,
+  },
+  formContent: {
     padding: 16,
   },
-  cardPreview: {
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 24,
-  },
-  previewLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  previewBankName: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  previewAccountType: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  previewInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  previewInfoLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-  },
-  previewInfoValue: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  formCard: {
-    borderRadius: 16,
-    padding: 16,
+  formFields: {
     marginBottom: 24,
   },
   formRow: {
@@ -514,37 +417,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
-  pickerContainer: {
+  modalContainer: {
+    flex: 1,
+  },
+  colorPickerContainer: {
     width: '100%',
     backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
     maxHeight: 400,
   },
-  pickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  pickerTitle: {
+  modalTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    padding: 16,
   },
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     padding: 16,
   },
-  colorItem: {
+  colorOption: {
     width: 48,
     height: 48,
     margin: 8,
     borderRadius: 24,
   },
-  colorItemSelected: {
+  selectedColorOption: {
     borderWidth: 3,
     borderColor: '#fff',
     elevation: 5,
@@ -553,14 +452,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
-  typeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  pickerContainer: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    maxHeight: 400,
+  },
+  typeOption: {
     padding: 16,
     borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  typeItemText: {
+  typeOptionText: {
     fontSize: 16,
   },
 }); 

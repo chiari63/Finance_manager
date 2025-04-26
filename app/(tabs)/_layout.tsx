@@ -63,9 +63,20 @@ export default function TabLayout() {
                 style={[styles.addButton, { backgroundColor: colors.primary }]}
                 onPress={handleAddTransaction}
               >
-                <MaterialCommunityIcons name="plus" size={24} color="#fff" />
+                <MaterialCommunityIcons name="plus" size={35} color="#fff" />
               </TouchableOpacity>
             </View>
+          ),
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              style={{ flex: 1, alignItems: 'center' }}
+              activeOpacity={1}
+              onPress={() => {
+                // Ignora cliques na área da tab, apenas o botão flutuante responde
+              }}
+            >
+              {props.children}
+            </TouchableOpacity>
           ),
         }}
       />
@@ -96,15 +107,15 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   addButtonContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 16 : 0,
+    bottom: Platform.OS === 'ios' ? 16 : -15,
     left: 0,
     right: 0,
     alignItems: 'center',
   },
   addButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 65,
+    height: 65,
+    borderRadius: 35,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

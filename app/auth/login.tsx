@@ -16,6 +16,8 @@ import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useColorScheme } from '../../hooks/useColorScheme';
+import { Colors } from '../../constants/Colors';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -32,8 +34,13 @@ export default function LoginScreen() {
     isEnrolled, 
     authenticate, 
     getBiometricTypeName,
+    hasCredentials,
+    checkBiometricCredentials,
     isLoading: biometricLoading 
   } = useBiometricAuth();
+  
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   
   // Buscar o email do último login
   useEffect(() => {
@@ -43,6 +50,9 @@ export default function LoginScreen() {
         if (savedEmail) {
           setLastEmail(savedEmail);
           setEmail(savedEmail);
+          
+          // Verificar se há credenciais biométricas para este email
+          await checkBiometricCredentials(savedEmail);
         }
       } catch (error) {
         console.error('Erro ao buscar email do último login:', error);
@@ -73,8 +83,13 @@ export default function LoginScreen() {
         // Se biometria for bem-sucedida, fazer login com o email armazenado
         // A senha não é armazenada, mas o Firebase Auth pode manter o usuário autenticado
         // em segundo plano se houver uma sessão válida
+        
+        // Pequeno delay antes do login para garantir que a UI esteja responsiva
+        await new Promise(resolve => setTimeout(resolve, 300));
         await login(lastEmail, '');
         console.log('Login com biometria realizado com sucesso');
+        // Não desativamos o loading para evitar piscar a tela
+        return;
       } else {
         setError(result.error || 'Falha na autenticação biométrica');
       }
@@ -85,7 +100,7 @@ export default function LoginScreen() {
       } else {
         setError('Ocorreu um erro durante a autenticação');
       }
-    } finally {
+      // Só desativamos o loading em caso de erro
       setLoading(false);
     }
   };
@@ -107,6 +122,8 @@ export default function LoginScreen() {
     
     try {
       console.log('Tentando fazer login com:', email);
+      // Pequeno delay antes do login para garantir que a UI esteja responsiva
+      await new Promise(resolve => setTimeout(resolve, 300));
       await login(email, password);
       
       // Salvar email para login biométrico futuro
@@ -114,25 +131,29 @@ export default function LoginScreen() {
       setLastEmail(email);
       
       console.log('Login realizado com sucesso');
+      // Importante: Não desativamos o estado de loading aqui,
+      // para evitar que a tela pisque entre estados
+      // O ProtectedRouteGuard vai cuidar da navegação e estados
+      return;
     } catch (err) {
       console.error('Erro no login:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Ocorreu um erro durante o login');
+        setError('Ocorreu um erro durante a autenticação');
       }
-    } finally {
+      // Só desativamos o loading em caso de erro
       setLoading(false);
     }
   };
   
   // Verificar se deve mostrar botão de biometria
-  const showBiometricButton = isSupported && isEnabled && isEnrolled && !!lastEmail;
+  const showBiometricButton = isSupported && isEnabled && isEnrolled && !!lastEmail && hasCredentials;
   
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
       <ScrollView 
         contentContainerStyle={styles.scrollContainer}
@@ -140,12 +161,12 @@ export default function LoginScreen() {
       >
         <View style={styles.contentContainer}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>FinanceManager</Text>
-            <Text style={styles.tagline}>Gerencie suas finanças com simplicidade</Text>
+            <Text style={[styles.logoText, { color: colors.primary }]}>Finance Manager</Text>
+            <Text style={[styles.tagline, { color: colors.muted }]}>Gerencie suas finanças com simplicidade</Text>
           </View>
           
-          <View style={styles.formContainer}>
-            <Text style={styles.title}>Bem-vindo(a) de volta!</Text>
+          <View style={[styles.formContainer, { backgroundColor: colors.card, shadowColor: colorScheme === 'dark' ? 'transparent' : '#000' }]}>
+            <Text style={[styles.title, { color: colors.text }]}>Bem-vindo(a) de volta!</Text>
             
             {error ? (
               <View style={styles.errorContainer}>
@@ -154,29 +175,29 @@ export default function LoginScreen() {
               </View>
             ) : null}
             
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={22} color="#6c757d" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+              <Ionicons name="mail-outline" size={22} color={colors.muted} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.text }]}
                 placeholder="Email"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor="#9e9e9e"
+                placeholderTextColor={colors.muted}
               />
             </View>
             
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={22} color="#6c757d" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+              <Ionicons name="lock-closed-outline" size={22} color={colors.muted} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.text }]}
                 placeholder="Senha"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
-                placeholderTextColor="#9e9e9e"
+                placeholderTextColor={colors.muted}
               />
               <TouchableOpacity 
                 style={styles.eyeIcon} 
@@ -185,7 +206,7 @@ export default function LoginScreen() {
                 <Ionicons 
                   name={showPassword ? "eye-off-outline" : "eye-outline"} 
                   size={22} 
-                  color="#6c757d" 
+                  color={colors.muted}
                 />
               </TouchableOpacity>
             </View>
@@ -194,7 +215,7 @@ export default function LoginScreen() {
               style={styles.forgotPassword}
               onPress={() => Alert.alert('Redefinir Senha', 'Funcionalidade em desenvolvimento')}
             >
-              <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
+              <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>Esqueceu a senha?</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -215,24 +236,30 @@ export default function LoginScreen() {
                 onPress={handleBiometricLogin}
                 disabled={loading || biometricLoading}
               >
-                <Ionicons 
-                  name={Platform.OS === 'ios' ? 'finger-print' : 'finger-print'} 
-                  size={22} 
-                  color="#ffffff" 
-                />
-                <Text style={styles.biometricButtonText}>
-                  Entrar com {getBiometricTypeName()}
-                </Text>
+                {loading ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons 
+                      name={Platform.OS === 'ios' ? 'finger-print' : 'finger-print'} 
+                      size={22} 
+                      color="#ffffff" 
+                    />
+                    <Text style={styles.biometricButtonText}>
+                      Entrar com {getBiometricTypeName()}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             )}
             
             <View style={styles.registerContainer}>
-              <Text style={styles.registerText}>
+              <Text style={[styles.registerText, { color: colors.muted }]}>
                 Não tem uma conta?{' '}
               </Text>
               <Link href="/auth/register" asChild>
                 <TouchableOpacity>
-                  <Text style={styles.registerLink}>Registre-se</Text>
+                  <Text style={[styles.registerLink, { color: colors.primary }]}>Registre-se</Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -246,7 +273,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -267,19 +293,15 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#3498db',
     marginBottom: 8,
   },
   tagline: {
     fontSize: 16,
-    color: '#6c757d',
     textAlign: 'center',
   },
   formContainer: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 24,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -288,7 +310,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#212529',
     marginBottom: 20,
     textAlign: 'center',
   },

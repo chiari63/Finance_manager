@@ -307,34 +307,32 @@ export default function HomeScreen() {
         
         {/* Resumo por categoria - Mostra todas as categorias com gastos */}
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Categorias de Despesas</Text>
-        {recentTransactions.length > 0 && (
-          <CategoryPercentageCard 
-            title="Todas as categorias" 
-            limit={999} // Número alto para mostrar todas as categorias
-            categorySummaries={
-              transactions
-                .filter(t => t.type === TransactionType.EXPENSE)
-                .reduce((summaries, transaction) => {
-                  // Encontrar se já existe um resumo para esta categoria
-                  const existingSummary = summaries.find(s => s.categoryId === transaction.categoryId);
-                  
-                  if (existingSummary) {
-                    // Atualizar o valor existente
-                    existingSummary.amount += transaction.amount;
-                  } else {
-                    // Adicionar nova categoria ao resumo
-                    summaries.push({
-                      categoryId: transaction.categoryId,
-                      amount: transaction.amount,
-                      percentage: 0 // Será calculado pelo componente
-                    });
-                  }
-                  
-                  return summaries;
-                }, [] as CategorySummary[])
-            }
-          />
-        )}
+        <CategoryPercentageCard 
+          title="Todas as categorias" 
+          limit={999} // Número alto para mostrar todas as categorias
+          categorySummaries={
+            transactions
+              .filter(t => t.type === TransactionType.EXPENSE)
+              .reduce((summaries, transaction) => {
+                // Encontrar se já existe um resumo para esta categoria
+                const existingSummary = summaries.find(s => s.categoryId === transaction.categoryId);
+                
+                if (existingSummary) {
+                  // Atualizar o valor existente
+                  existingSummary.amount += transaction.amount;
+                } else {
+                  // Adicionar nova categoria ao resumo
+                  summaries.push({
+                    categoryId: transaction.categoryId,
+                    amount: transaction.amount,
+                    percentage: 0 // Será calculado pelo componente
+                  });
+                }
+                
+                return summaries;
+              }, [] as CategorySummary[])
+          }
+        />
         
         {/* Transações recentes - Movido para o final */}
         <View style={styles.transactionsHeader}>

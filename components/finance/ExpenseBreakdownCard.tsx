@@ -28,7 +28,9 @@ export const ExpenseBreakdownCard: React.FC<ExpenseBreakdownProps> = ({
   const totalExpense = expenseTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
 
   // Função para buscar método de pagamento personalizado ou usar o padrão
-  const findPaymentMethod = (methodId: string) => {
+  const findPaymentMethod = (methodId: string | null) => {
+    if (!methodId) return { id: 'unknown', type: 'unknown', name: 'Desconhecido' };
+    
     // Primeiro tenta encontrar no array de métodos carregados do Firestore
     const customMethod = paymentMethods.find(method => method.id === methodId);
     if (customMethod) return customMethod;
@@ -129,7 +131,35 @@ export const ExpenseBreakdownCard: React.FC<ExpenseBreakdownProps> = ({
   }
 
   if (expenseTransactions.length === 0) {
-    return null;
+    return (
+      <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+          {onViewAllPress && (
+            <TouchableOpacity onPress={onViewAllPress}>
+              <Text style={[styles.viewAllText, { color: colors.primary }]}>Ver tudo</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.totalContainer}>
+          <Text style={[styles.totalLabel, { color: colors.muted }]}>Total em Despesas</Text>
+          <Text style={[styles.totalValue, { color: colors.expense }]}>{formatCurrency(0)}</Text>
+        </View>
+
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        <View style={styles.emptyStateContainer}>
+          <MaterialCommunityIcons name="cash-minus" size={40} color={colors.muted} />
+          <Text style={[styles.emptyStateText, { color: colors.muted }]}>
+            Nenhuma despesa registrada neste mês
+          </Text>
+          <Text style={[styles.emptyStateSubtext, { color: colors.muted }]}>
+            Adicione despesas para visualizar seu resumo financeiro
+          </Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -275,5 +305,21 @@ const styles = StyleSheet.create({
     width: 40,
     fontSize: 12,
     textAlign: 'right',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 12,
+    textAlign: 'center', 
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    marginTop: 6,
+    textAlign: 'center',
   }
 }); 

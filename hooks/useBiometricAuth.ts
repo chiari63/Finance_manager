@@ -5,6 +5,7 @@ import { Alert, Platform } from 'react-native';
 
 // Chave para armazenar a configuração no AsyncStorage
 const BIOMETRIC_ENABLED_KEY = 'biometric_auth_enabled';
+const BIOMETRIC_CREDENTIALS_KEY = 'biometric_credentials';
 
 export function useBiometricAuth() {
   // Estados
@@ -13,6 +14,72 @@ export function useBiometricAuth() {
   const [isEnrolled, setIsEnrolled] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [biometricType, setBiometricType] = useState<LocalAuthentication.AuthenticationType | null>(null);
+  const [hasCredentials, setHasCredentials] = useState<boolean>(false);
+  
+  // Verificar se há credenciais biométricas salvas
+  const checkBiometricCredentials = async (email?: string) => {
+    try {
+      const credentialsStr = await AsyncStorage.getItem(BIOMETRIC_CREDENTIALS_KEY);
+      if (!credentialsStr) {
+        setHasCredentials(false);
+        return false;
+      }
+      
+      const credentials = JSON.parse(credentialsStr);
+      if (!Array.isArray(credentials) || credentials.length === 0) {
+        setHasCredentials(false);
+        return false;
+      }
+      
+      if (email) {
+        // Verifica se há credenciais para este email específico
+        const userCredential = credentials.find(cred => cred.email === email);
+        setHasCredentials(!!userCredential);
+        return !!userCredential;
+      } else {
+        // Verifica se há qualquer credencial
+        setHasCredentials(true);
+        return true;
+      }
+    } catch (error) {
+      console.error('Erro ao verificar credenciais biométricas:', error);
+      setHasCredentials(false);
+      return false;
+    }
+  };
+  
+  // Limpar credenciais biométricas
+  const clearBiometricCredentials = async (emailToClear?: string) => {
+    try {
+      if (!emailToClear) {
+        // Limpar todas as credenciais
+        await AsyncStorage.removeItem(BIOMETRIC_CREDENTIALS_KEY);
+        setHasCredentials(false);
+        return true;
+      }
+      
+      // Limpar apenas para um email específico
+      const credentialsStr = await AsyncStorage.getItem(BIOMETRIC_CREDENTIALS_KEY);
+      if (!credentialsStr) return true;
+      
+      const credentials = JSON.parse(credentialsStr);
+      if (!Array.isArray(credentials)) return true;
+      
+      const updatedCredentials = credentials.filter(cred => cred.email !== emailToClear);
+      
+      if (updatedCredentials.length === 0) {
+        await AsyncStorage.removeItem(BIOMETRIC_CREDENTIALS_KEY);
+      } else {
+        await AsyncStorage.setItem(BIOMETRIC_CREDENTIALS_KEY, JSON.stringify(updatedCredentials));
+      }
+      
+      await checkBiometricCredentials();
+      return true;
+    } catch (error) {
+      console.error('Erro ao limpar credenciais biométricas:', error);
+      return false;
+    }
+  };
   
   // Verificar se o dispositivo suporta autenticação biométrica
   const checkBiometricSupport = async () => {
@@ -47,6 +114,9 @@ export function useBiometricAuth() {
       const storedPreference = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
       const isEnabledFromStorage = storedPreference === 'true';
       setIsEnabled(isEnabledFromStorage);
+      
+      // Verificar se há credenciais salvas
+      await checkBiometricCredentials();
       
       console.log('Autenticação biométrica - Compatível:', compatible, 'Registrada:', enrolled, 'Habilitada:', isEnabledFromStorage);
       
@@ -85,6 +155,32 @@ export function useBiometricAuth() {
         const result = await authenticate('Confirme sua identidade para ativar autenticação biométrica');
         if (!result.success) {
           return false;
+        }
+        
+        // Verificar se há email salvo para login automático
+        const lastEmail = await AsyncStorage.getItem('last_email');
+        if (!lastEmail) {
+          Alert.alert(
+            'Login necessário',
+            'Você precisa fazer login pelo menos uma vez antes de ativar a biometria.'
+          );
+          return false;
+        }
+      } else {
+        // Ao desativar, perguntar se deve limpar credenciais
+        const shouldClear = await new Promise<boolean>(resolve => {
+          Alert.alert(
+            'Limpar credenciais?',
+            'Deseja também remover as senhas salvas para autenticação biométrica?',
+            [
+              { text: 'Não', onPress: () => resolve(false) },
+              { text: 'Sim', onPress: () => resolve(true) }
+            ]
+          );
+        });
+        
+        if (shouldClear) {
+          await clearBiometricCredentials();
         }
       }
       
@@ -161,10 +257,13 @@ export function useBiometricAuth() {
     isEnabled,
     isEnrolled,
     isLoading,
+    hasCredentials,
     biometricType,
     checkBiometricSupport,
     toggleBiometricAuth,
     authenticate,
     getBiometricTypeName,
+    checkBiometricCredentials,
+    clearBiometricCredentials
   };
 } 

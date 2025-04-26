@@ -11,7 +11,8 @@ export interface Transaction {
   amount: number;
   date: Date;
   categoryId: string;
-  paymentMethodId: string;
+  paymentMethodId: string | null;
+  accountId?: string | null;
   type: TransactionType;
   frequency: TransactionFrequency;
   description?: string;

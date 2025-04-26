@@ -17,6 +17,7 @@ const PAYMENT_TYPE_ICONS = {
   pix: 'qrcode',
   boleto: 'barcode',
   transfer: 'bank-transfer',
+  food: 'food',
   other: 'cash'
 };
 
@@ -26,6 +27,7 @@ const PAYMENT_TYPE_COLORS = {
   pix: '#FFAA44',
   boleto: '#FF4444',
   transfer: '#44FFFF',
+  food: '#FF9800',
   other: '#8844FF'
 };
 
@@ -35,6 +37,7 @@ const PAYMENT_TYPE_LABELS = {
   pix: 'PIX',
   boleto: 'Boleto',
   transfer: 'Transferência',
+  food: 'Vale Alimentação',
   other: 'Outro'
 };
 
@@ -196,6 +199,7 @@ export default function PaymentMethodsScreen() {
       debit: 'Cartão de Débito',
       pix: 'PIX',
       digital: 'Carteira Digital',
+      food: 'Vale Alimentação',
       other: 'Outro'
     };
     return types[type as keyof typeof types] || type;

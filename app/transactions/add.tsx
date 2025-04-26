@@ -38,7 +38,7 @@ const INCOME_CATEGORIES = CATEGORIES.filter(cat =>
 
 export default function AddTransactionScreen() {
   const { user } = useAuth();
-  const { accounts, paymentMethods, loadAccounts, loadPaymentMethods } = useTransactions();
+  const { accounts, paymentMethods, loadAccounts, loadPaymentMethods, addTransaction } = useTransactions();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   
@@ -161,9 +161,16 @@ export default function AddTransactionScreen() {
     const isVoucherPayment = !isIncome && selectedPaymentMethod && 
       paymentMethods.find(m => m.id === selectedPaymentMethod)?.type === 'food';
     
-    // Só exigir conta se não for receita e não for pagamento com vale refeição
-    if (!isIncome && !isVoucherPayment && !selectedAccount) {
-      Alert.alert('Erro', 'Selecione uma conta para a transação.');
+    // Verificar se é uma receita que precisa de conta (salário, bônus, investimento)
+    const isIncomeRequiringAccount = isIncome && 
+      ['salary', 'bonus', 'investment'].includes(selectedCategory);
+    
+    // Exigir conta para despesas normais e receitas específicas
+    if ((!isIncome && !isVoucherPayment && !selectedAccount) || 
+        (isIncomeRequiringAccount && !selectedAccount)) {
+      Alert.alert('Erro', isIncome 
+        ? 'Selecione uma conta para depositar esta receita.'
+        : 'Selecione uma conta para a transação.');
       return;
     }
     
@@ -191,12 +198,13 @@ export default function AddTransactionScreen() {
         amount: parsedAmount,
         type: isIncome ? TransactionType.INCOME : TransactionType.EXPENSE,
         categoryId: selectedCategory,
-        accountId: isVoucherPayment ? null : selectedAccount,
-        paymentMethodId: isIncome ? null : selectedPaymentMethod,
+        accountId: isVoucherPayment ? null : 
+                  (isIncome && !['salary', 'bonus', 'investment'].includes(selectedCategory)) ? null : 
+                  selectedAccount,
+        paymentMethodId: isIncome ? null : (selectedPaymentMethod || null),
         date: date,
         frequency: TransactionFrequency.VARIABLE,
-        notes: sanitizedNotes,
-        createdAt: serverTimestamp()
+        notes: sanitizedNotes
       };
       
       if (isInstallmentTransaction) {
@@ -239,7 +247,8 @@ export default function AddTransactionScreen() {
             dataCompra: startDate.toISOString(),
           });
           
-          await addDoc(collection(db, `users/${user.id}/transactions`), installmentData);
+          // Usar a função addTransaction do contexto em vez de addDoc diretamente
+          await addTransaction(installmentData);
           
           Alert.alert(
             'Sucesso', 
@@ -258,7 +267,8 @@ export default function AddTransactionScreen() {
             }
           };
           
-          await addDoc(collection(db, `users/${user.id}/transactions`), installmentData);
+          // Usar a função addTransaction do contexto em vez de addDoc diretamente
+          await addTransaction(installmentData);
           
           Alert.alert(
             'Sucesso', 
@@ -266,8 +276,20 @@ export default function AddTransactionScreen() {
           );
         }
       } else {
-        // Transação normal, sem parcelas
-        await addDoc(collection(db, `users/${user.id}/transactions`), baseTransactionData);
+        // Usar a função addTransaction do contexto em vez de addDoc diretamente
+        console.log('📊 Detalhes da transação antes de salvar:', {
+          title: baseTransactionData.title,
+          amount: baseTransactionData.amount,
+          type: baseTransactionData.type,
+          categoryId: baseTransactionData.categoryId,
+          accountId: baseTransactionData.accountId,
+          paymentMethodId: baseTransactionData.paymentMethodId,
+          isIncome: isIncome,
+          isReceita: baseTransactionData.type === TransactionType.INCOME,
+          categoriaEspecial: ['salary', 'bonus', 'investment'].includes(baseTransactionData.categoryId)
+        });
+        
+        await addTransaction(baseTransactionData);
         Alert.alert('Sucesso', 'Transação registrada com sucesso!');
       }
       
@@ -519,12 +541,15 @@ export default function AddTransactionScreen() {
           </TouchableOpacity>
           
           {/* Campo Conta */}
-          {!isIncome && !(selectedPaymentMethodInfo && selectedPaymentMethodInfo.type === 'food') && (
+          {(!isIncome || (isIncome && ['salary', 'bonus', 'investment'].includes(selectedCategory))) 
+            && !(selectedPaymentMethodInfo && selectedPaymentMethodInfo.type === 'food') && (
             <TouchableOpacity
               style={styles.formRow}
               onPress={() => setShowAccountPicker(true)}
             >
-              <Text style={[styles.label, { color: colors.text }]}>Conta</Text>
+              <Text style={[styles.label, { color: colors.text }]}>
+                {isIncome ? 'Conta para Depósito' : 'Conta'}
+              </Text>
               <View style={[styles.pickerButton, { borderColor: colors.border }]}>
                 {selectedAccountInfo ? (
                   <View style={styles.selectedItem}>

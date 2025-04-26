@@ -13,6 +13,8 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useColorScheme } from '../../hooks/useColorScheme';
+import { Colors } from '../../constants/Colors';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -25,6 +27,8 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const { register } = useAuth();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   
   // Validar email
   const isValidEmail = (email: string): boolean => {
@@ -93,16 +97,19 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>FinanceManager</Text>
-          <Text style={styles.tagline}>Gerencie suas finanças com simplicidade</Text>
+          <Text style={[styles.logoText, { color: colors.primary }]}>Finance Manager</Text>
+          <Text style={[styles.tagline, { color: colors.muted }]}>Gerencie suas finanças com simplicidade</Text>
         </View>
         
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Criar Conta</Text>
+        <View style={[styles.formContainer, { backgroundColor: colors.card, shadowColor: colorScheme === 'dark' ? 'transparent' : '#000' }]}>
+          <Text style={[styles.title, { color: colors.text }]}>Criar Conta</Text>
           
           {error ? (
             <View style={styles.errorContainer}>
@@ -111,41 +118,41 @@ export default function RegisterScreen() {
             </View>
           ) : null}
           
-          <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={22} color="#6c757d" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <Ionicons name="person-outline" size={22} color={colors.muted} style={styles.inputIcon} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.text }]}
               placeholder="Nome completo"
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
-              placeholderTextColor="#9e9e9e"
+              placeholderTextColor={colors.muted}
             />
           </View>
           
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={22} color="#6c757d" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <Ionicons name="mail-outline" size={22} color={colors.muted} style={styles.inputIcon} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.text }]}
               placeholder="Email"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
-              placeholderTextColor="#9e9e9e"
+              placeholderTextColor={colors.muted}
             />
           </View>
           
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={22} color="#6c757d" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <Ionicons name="lock-closed-outline" size={22} color={colors.muted} style={styles.inputIcon} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.text }]}
               placeholder="Senha"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
-              placeholderTextColor="#9e9e9e"
+              placeholderTextColor={colors.muted}
             />
             <TouchableOpacity 
               style={styles.eyeIcon} 
@@ -154,32 +161,22 @@ export default function RegisterScreen() {
               <Ionicons 
                 name={showPassword ? "eye-off-outline" : "eye-outline"} 
                 size={22} 
-                color="#6c757d" 
+                color={colors.muted}
               />
             </TouchableOpacity>
           </View>
           
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={22} color="#6c757d" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <Ionicons name="lock-closed-outline" size={22} color={colors.muted} style={styles.inputIcon} />
             <TextInput
-              style={styles.input}
-              placeholder="Confirmar senha"
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Confirmar Senha"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
+              secureTextEntry={!showPassword}
               autoCapitalize="none"
-              placeholderTextColor="#9e9e9e"
+              placeholderTextColor={colors.muted}
             />
-            <TouchableOpacity 
-              style={styles.eyeIcon} 
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-            >
-              <Ionicons 
-                name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
-                size={22} 
-                color="#6c757d" 
-              />
-            </TouchableOpacity>
           </View>
           
           <TouchableOpacity 
@@ -195,18 +192,18 @@ export default function RegisterScreen() {
           </TouchableOpacity>
           
           <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>
+            <Text style={[styles.loginText, { color: colors.muted }]}>
               Já tem uma conta?{' '}
             </Text>
             <Link href="/auth/login" asChild>
               <TouchableOpacity>
-                <Text style={styles.loginLink}>Entrar</Text>
+                <Text style={[styles.loginLink, { color: colors.primary }]}>Entrar</Text>
               </TouchableOpacity>
             </Link>
           </View>
           
-          <Text style={styles.termsText}>
-            Ao criar uma conta, você concorda com nossos Termos de Serviço e Política de Privacidade.
+          <Text style={[styles.termsText, { color: colors.muted }]}>
+            Ao se registrar, você concorda com nossos Termos de Uso e Política de Privacidade.
           </Text>
         </View>
       </ScrollView>
@@ -217,7 +214,6 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -232,19 +228,15 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#3498db',
     marginBottom: 8,
   },
   tagline: {
     fontSize: 16,
-    color: '#6c757d',
     textAlign: 'center',
   },
   formContainer: {
-    backgroundColor: 'white',
     borderRadius: 12,
     padding: 24,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -253,7 +245,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#212529',
     marginBottom: 20,
     textAlign: 'center',
   },
