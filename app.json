@@ -3,7 +3,7 @@
     "name": "Finance Manager",
     "slug": "finance-manager",
     "description": "Aplicativo de gestão financeira pessoal com visual moderno e minimalista",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/banco512.png",
     "scheme": "financegestao",

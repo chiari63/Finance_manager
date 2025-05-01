@@ -52,7 +52,16 @@ export default function LoginScreen() {
           setEmail(savedEmail);
           
           // Verificar se há credenciais biométricas para este email
-          await checkBiometricCredentials(savedEmail);
+          const hasStoredCredentials = await checkBiometricCredentials(savedEmail);
+          
+          // Verificar se a biometria está habilitada e se existem credenciais
+          if (isSupported && isEnabled && isEnrolled && hasStoredCredentials) {
+            // Pequeno delay para garantir que a UI esteja totalmente carregada
+            setTimeout(() => {
+              // Iniciar login biométrico automaticamente
+              handleBiometricLogin();
+            }, 500);
+          }
         }
       } catch (error) {
         console.error('Erro ao buscar email do último login:', error);
@@ -60,7 +69,7 @@ export default function LoginScreen() {
     };
     
     fetchLastEmail();
-  }, []);
+  }, [isSupported, isEnabled, isEnrolled, checkBiometricCredentials]);
   
   const handleBiometricLogin = async () => {
     if (!lastEmail) {

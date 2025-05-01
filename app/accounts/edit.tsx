@@ -70,31 +70,31 @@ export default function EditAccountScreen() {
   
   useEffect(() => {
     if (isEditing && accountId && user) {
-      const fetchAccount = async () => {
-        try {
+  const fetchAccount = async () => {
+    try {
           const accountRef = doc(db, `users/${user.id}/bankAccounts/${accountId}`);
           const accountSnap = await getDoc(accountRef);
-          
+      
           if (accountSnap.exists()) {
             const accountData = accountSnap.data();
-            setAccount({
-              id: accountId,
+        setAccount({
+          id: accountId,
               name: accountData.name,
               type: accountData.type,
               color: accountData.color,
               balance: accountData.balance,
               icon: accountData.icon || 'bank'
-            });
-          } else {
+        });
+      } else {
             Alert.alert('Erro', 'Conta não encontrada.');
-            router.back();
-          }
-        } catch (error) {
+        router.back();
+      }
+    } catch (error) {
           console.error('Erro ao buscar dados da conta:', error);
-          Alert.alert('Erro', 'Não foi possível carregar os dados da conta.');
-          router.back();
-        }
-      };
+      Alert.alert('Erro', 'Não foi possível carregar os dados da conta.');
+      router.back();
+    }
+  };
       
       fetchAccount();
     }
@@ -180,25 +180,25 @@ export default function EditAccountScreen() {
       >
         <View style={[styles.colorPickerContainer, { backgroundColor: colors.card }]}>
           <Text style={[styles.modalTitle, { color: colors.text }]}>Escolha uma cor</Text>
-          
-          <View style={styles.colorGrid}>
+        
+        <View style={styles.colorGrid}>
             {ACCOUNT_COLORS.map(color => (
-              <TouchableOpacity
-                key={color}
-                style={[
+            <TouchableOpacity
+              key={color}
+              style={[
                   styles.colorOption,
-                  { backgroundColor: color },
+                { backgroundColor: color },
                   account.color === color && styles.selectedColorOption
-                ]}
+              ]}
                 onPress={() => handleSelectColor(color)}
-              />
-            ))}
-          </View>
+            />
+          ))}
         </View>
+      </View>
       </TouchableOpacity>
     );
   };
-
+  
   // Renderiza o seletor de tipo de conta
   const renderTypePicker = () => {
     return (
@@ -209,7 +209,7 @@ export default function EditAccountScreen() {
       >
         <View style={[styles.pickerContainer, { backgroundColor: colors.card }]}>
           <Text style={[styles.modalTitle, { color: colors.text }]}>Tipo de Conta</Text>
-          
+        
           {ACCOUNT_TYPES.map(type => (
             <TouchableOpacity
               key={type.id + type.label}
@@ -228,7 +228,7 @@ export default function EditAccountScreen() {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+      </View>
       </TouchableOpacity>
     );
   };

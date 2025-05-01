@@ -21,16 +21,16 @@ export default function AccountsScreen() {
 
   useEffect(() => {
     const loadAccountsData = async () => {
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
         await loadAccounts();
-      } catch (error) {
+    } catch (error) {
         console.error('Erro ao carregar contas:', error);
-        Alert.alert('Erro', 'Não foi possível carregar suas contas bancárias.');
-      } finally {
-        setLoading(false);
-      }
-    };
+      Alert.alert('Erro', 'Não foi possível carregar suas contas bancárias.');
+    } finally {
+      setLoading(false);
+    }
+  };
     
     loadAccountsData();
   }, []);

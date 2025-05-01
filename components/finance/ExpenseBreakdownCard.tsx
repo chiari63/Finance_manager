@@ -200,7 +200,7 @@ export const ExpenseBreakdownCard: React.FC<ExpenseBreakdownProps> = ({
               </Text>
             </View>
 
-            <View style={styles.categoryPercentContainer}>
+            <View style={styles.categoryValueContainer}>
               <View style={styles.percentageBarContainer}>
                 <View 
                   style={[
@@ -214,9 +214,14 @@ export const ExpenseBreakdownCard: React.FC<ExpenseBreakdownProps> = ({
                 />
               </View>
               
-              <Text style={[styles.percentageText, { color: colors.text }]}>
-                {Math.round(safePercentage)}%
-              </Text>
+              <View style={styles.valueTextContainer}>
+                <Text style={[styles.valueText, { color: colors.expense }]}>
+                  {formatCurrency(summary.total)}
+                </Text>
+                <Text style={[styles.percentageText, { color: colors.text }]}>
+                  {Math.round(safePercentage)}%
+                </Text>
+              </View>
             </View>
           </View>
         );
@@ -283,9 +288,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flexShrink: 1,
   },
-  categoryPercentContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  categoryValueContainer: {
     flex: 1,
     marginLeft: 8,
   },
@@ -295,16 +298,25 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
     flex: 1,
-    marginRight: 8,
+    marginBottom: 4,
   },
   percentageBar: {
     height: '100%',
     borderRadius: 4,
   },
+  valueTextContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   percentageText: {
-    width: 40,
     fontSize: 12,
     textAlign: 'right',
+  },
+  valueText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'left',
   },
   emptyStateContainer: {
     alignItems: 'center',

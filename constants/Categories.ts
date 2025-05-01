@@ -32,6 +32,7 @@ export const CATEGORIES: Category[] = [
   { id: 'bonus', name: 'Bônus', icon: 'gift', color: '#3B82F6' },
   { id: 'food_voucher', name: 'Vale-Refeição', icon: 'food-apple', color: '#F59E0B' },
   { id: 'investment', name: 'Investimentos', icon: 'chart-line', color: '#0EA5E9' },
+  { id: 'refund', name: 'Reembolso', icon: 'cash-refund', color: '#8B5CF6' },
 ];
 
 // Métodos de pagamento

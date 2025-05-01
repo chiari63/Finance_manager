@@ -425,7 +425,7 @@ export default function SettingsScreen() {
       {/* Informações do App */}
       <View style={styles.footer}>
         <Text style={[styles.appVersion, { color: colors.muted }]}>
-          Finance Manager v1.0.1
+          Finance Manager v1.0.2
         </Text>
       </View>
 

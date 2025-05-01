@@ -456,7 +456,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
       // Verificar se é uma receita que deve atualizar o saldo de uma conta
       if (
         transaction.type === TransactionType.INCOME && 
-        ['salary', 'bonus', 'investment'].includes(transaction.categoryId) && 
+        ['salary', 'bonus', 'investment', 'refund'].includes(transaction.categoryId) && 
         transaction.accountId
       ) {
         console.log(`📝 Transação é uma receita (${transaction.categoryId}) que deve atualizar o saldo da conta ${transaction.accountId}`);
@@ -570,7 +570,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
           // 1. Se a transação original era uma receita que afetava uma conta, reverter o incremento
           if (
             originalTransaction.type === TransactionType.INCOME && 
-            ['salary', 'bonus', 'investment'].includes(originalTransaction.categoryId) && 
+            ['salary', 'bonus', 'investment', 'refund'].includes(originalTransaction.categoryId) && 
             originalTransaction.accountId
           ) {
             const accountRef = doc(db, 'users', user.id, 'bankAccounts', originalTransaction.accountId);
@@ -619,7 +619,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
           // 3. Se a nova transação é uma receita que afeta uma conta, aplicar o incremento
           if (
             transaction.type === TransactionType.INCOME && 
-            ['salary', 'bonus', 'investment'].includes(transaction.categoryId) && 
+            ['salary', 'bonus', 'investment', 'refund'].includes(transaction.categoryId) && 
             transaction.accountId
           ) {
             const accountRef = doc(db, 'users', user.id, 'bankAccounts', transaction.accountId);
@@ -739,7 +739,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         // Receitas que afetam o saldo (salário, bônus, investimento)
         if (
           transaction.type === TransactionType.INCOME && 
-          ['salary', 'bonus', 'investment'].includes(transaction.categoryId)
+          ['salary', 'bonus', 'investment', 'refund'].includes(transaction.categoryId)
         ) {
           calculatedBalance += transaction.amount;
           console.log(`➕ Transação ${transaction.id}: Adicionando ${transaction.amount} (${transaction.title})`);
@@ -796,7 +796,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         // Verificar se a transação afeta alguma conta
         if (transaction.accountId) {
           // Primeiro, excluir a transação
-          await deleteDoc(transactionRef);
+      await deleteDoc(transactionRef);
           console.log(`✅ Transação excluída com sucesso`);
           
           // Agora, recalcular o saldo da conta baseado no histórico atualizado

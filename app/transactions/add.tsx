@@ -33,7 +33,7 @@ const EXPENSE_CATEGORIES = CATEGORIES.filter(cat =>
 
 // Categorias para receitas
 const INCOME_CATEGORIES = CATEGORIES.filter(cat => 
-  ['salary', 'bonus', 'food_voucher', 'investment'].includes(cat.id)
+  ['salary', 'bonus', 'food_voucher', 'investment', 'refund'].includes(cat.id)
 );
 
 export default function AddTransactionScreen() {
@@ -163,7 +163,7 @@ export default function AddTransactionScreen() {
     
     // Verificar se é uma receita que precisa de conta (salário, bônus, investimento)
     const isIncomeRequiringAccount = isIncome && 
-      ['salary', 'bonus', 'investment'].includes(selectedCategory);
+      ['salary', 'bonus', 'investment', 'refund'].includes(selectedCategory);
     
     // Exigir conta para despesas normais e receitas específicas
     if ((!isIncome && !isVoucherPayment && !selectedAccount) || 
@@ -199,7 +199,7 @@ export default function AddTransactionScreen() {
         type: isIncome ? TransactionType.INCOME : TransactionType.EXPENSE,
         categoryId: selectedCategory,
         accountId: isVoucherPayment ? null : 
-                  (isIncome && !['salary', 'bonus', 'investment'].includes(selectedCategory)) ? null : 
+                  (isIncome && !['salary', 'bonus', 'investment', 'refund'].includes(selectedCategory)) ? null : 
                   selectedAccount,
         paymentMethodId: isIncome ? null : (selectedPaymentMethod || null),
         date: date,
@@ -286,7 +286,7 @@ export default function AddTransactionScreen() {
           paymentMethodId: baseTransactionData.paymentMethodId,
           isIncome: isIncome,
           isReceita: baseTransactionData.type === TransactionType.INCOME,
-          categoriaEspecial: ['salary', 'bonus', 'investment'].includes(baseTransactionData.categoryId)
+          categoriaEspecial: ['salary', 'bonus', 'investment', 'refund'].includes(baseTransactionData.categoryId)
         });
         
         await addTransaction(baseTransactionData);
@@ -541,7 +541,7 @@ export default function AddTransactionScreen() {
           </TouchableOpacity>
           
           {/* Campo Conta */}
-          {(!isIncome || (isIncome && ['salary', 'bonus', 'investment'].includes(selectedCategory))) 
+          {(!isIncome || (isIncome && ['salary', 'bonus', 'investment', 'refund'].includes(selectedCategory))) 
             && !(selectedPaymentMethodInfo && selectedPaymentMethodInfo.type === 'food') && (
             <TouchableOpacity
               style={styles.formRow}

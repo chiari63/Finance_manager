@@ -20,7 +20,7 @@ import { formatCurrency } from '../../utils/formatters';
 
 // Filtrar categorias por tipo
 const categoryGroups = {
-  income: CATEGORIES.filter(cat => ['salary', 'bonus', 'food_voucher', 'investment'].includes(cat.id)),
+  income: CATEGORIES.filter(cat => ['salary', 'bonus', 'food_voucher', 'investment', 'refund'].includes(cat.id)),
   expense: CATEGORIES.filter(cat => 
     ['food', 'transport', 'leisure', 'games', 'health', 'clothing', 'electronics', 'housing', 'subscriptions', 'education', 'bank', 'misc'].includes(cat.id)
   )

@@ -7,6 +7,7 @@ import { useTransactions } from '@/context/TransactionContext';
 import { getCategoryById, CATEGORIES } from '@/constants/Categories';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { CategorySummary } from '@/types/TransactionTypes';
+import { formatCurrency } from '@/utils/formatters';
 
 interface CategoryPercentageCardProps {
   title?: string;
@@ -83,7 +84,7 @@ export const CategoryPercentageCard = ({
                 {category?.name || `Categoria (${summary.categoryId})`}
               </Text>
             </View>
-            <View style={styles.categoryPercentContainer}>
+            <View style={styles.categoryValueContainer}>
               <View style={styles.percentageBarContainer}>
                 <View 
                   style={[
@@ -96,9 +97,14 @@ export const CategoryPercentageCard = ({
                   ]} 
                 />
               </View>
-              <Text style={[styles.percentageText, { color: colors.text }]}>
-                {safePercentage.toFixed(1)}%
-              </Text>
+              <View style={styles.valueTextContainer}>
+                <Text style={[styles.valueText, { color: colors.expense }]}>
+                  {formatCurrency(Math.abs(summary.amount))}
+                </Text>
+                <Text style={[styles.percentageText, { color: colors.text }]}>
+                  {safePercentage.toFixed(1)}%
+                </Text>
+              </View>
             </View>
           </View>
         );
@@ -140,9 +146,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
   },
-  categoryPercentContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  categoryValueContainer: {
     flex: 1,
   },
   percentageBarContainer: {
@@ -151,16 +155,29 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
     flex: 1,
-    marginRight: 8,
+    marginBottom: 4,
   },
   percentageBar: {
     height: '100%',
     borderRadius: 4,
   },
+  valueTextContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   percentageText: {
-    width: 50,
     fontSize: 12,
     textAlign: 'right',
+  },
+  valueText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'left',
+  },
+  divider: {
+    height: 1,
+    marginVertical: 12,
   },
   emptyCategoriesText: {
     textAlign: 'center',

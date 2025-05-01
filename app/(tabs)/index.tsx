@@ -307,32 +307,32 @@ export default function HomeScreen() {
         
         {/* Resumo por categoria - Mostra todas as categorias com gastos */}
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Categorias de Despesas</Text>
-        <CategoryPercentageCard 
-          title="Todas as categorias" 
-          limit={999} // Número alto para mostrar todas as categorias
-          categorySummaries={
-            transactions
-              .filter(t => t.type === TransactionType.EXPENSE)
-              .reduce((summaries, transaction) => {
-                // Encontrar se já existe um resumo para esta categoria
-                const existingSummary = summaries.find(s => s.categoryId === transaction.categoryId);
-                
-                if (existingSummary) {
-                  // Atualizar o valor existente
-                  existingSummary.amount += transaction.amount;
-                } else {
-                  // Adicionar nova categoria ao resumo
-                  summaries.push({
-                    categoryId: transaction.categoryId,
-                    amount: transaction.amount,
-                    percentage: 0 // Será calculado pelo componente
-                  });
-                }
-                
-                return summaries;
-              }, [] as CategorySummary[])
-          }
-        />
+          <CategoryPercentageCard 
+            title="Todas as categorias" 
+            limit={999} // Número alto para mostrar todas as categorias
+            categorySummaries={
+              transactions
+                .filter(t => t.type === TransactionType.EXPENSE)
+                .reduce((summaries, transaction) => {
+                  // Encontrar se já existe um resumo para esta categoria
+                  const existingSummary = summaries.find(s => s.categoryId === transaction.categoryId);
+                  
+                  if (existingSummary) {
+                    // Atualizar o valor existente
+                    existingSummary.amount += transaction.amount;
+                  } else {
+                    // Adicionar nova categoria ao resumo
+                    summaries.push({
+                      categoryId: transaction.categoryId,
+                      amount: transaction.amount,
+                      percentage: 0 // Será calculado pelo componente
+                    });
+                  }
+                  
+                  return summaries;
+                }, [] as CategorySummary[])
+            }
+          />
         
         {/* Transações recentes - Movido para o final */}
         <View style={styles.transactionsHeader}>
@@ -375,13 +375,16 @@ export default function HomeScreen() {
 
 // Função para calcular saldo em dinheiro: (salário + bônus) - (pix + débito)
 const calculateCashBalance = (incomeTransactions: any[], expenseTransactions: any[], creditCardBills: CardBill[], customPaymentMethods: any[], previousMonthBills: any[], totalPreviousBill: number) => {
-  // Calcular receitas (salário + bônus)
+  // Calcular receitas (salário + bônus + reembolso)
   const salaryIncome = incomeTransactions
-    .filter(t => t.categoryId === 'salary' || t.categoryId === 'bonus')
+    .filter(t => t.categoryId === 'salary' || t.categoryId === 'bonus' || t.categoryId === 'refund')
     .reduce((sum, t) => sum + t.amount, 0);
   
   // Função para encontrar o método de pagamento personalizado ou padrão
-  const findPaymentMethod = (methodId: string) => {
+  const findPaymentMethod = (methodId: string | null | undefined) => {
+    // Se o ID for nulo, retornar um método genérico
+    if (!methodId) return { id: 'unknown', type: 'unknown', name: 'Desconhecido' };
+    
     // Primeiro tenta encontrar no array de métodos carregados do Firestore
     const customMethod = customPaymentMethods.find(method => method.id === methodId);
     if (customMethod) return customMethod;
@@ -413,7 +416,10 @@ const calculateVRBalance = (incomeTransactions: any[], expenseTransactions: any[
     .reduce((sum, t) => sum + t.amount, 0);
   
   // Função para encontrar o método de pagamento personalizado ou padrão
-  const findPaymentMethod = (methodId: string) => {
+  const findPaymentMethod = (methodId: string | null | undefined) => {
+    // Se o ID for nulo, retornar um método genérico
+    if (!methodId) return { id: 'unknown', type: 'unknown', name: 'Desconhecido' };
+    
     // Primeiro tenta encontrar no array de métodos carregados do Firestore
     const customMethod = customPaymentMethods.find(method => method.id === methodId);
     if (customMethod) return customMethod;
